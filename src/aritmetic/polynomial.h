@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <NTL/ZZ.h>
+#include <NTL/ZZ_pEX.h>
 #include <map>
 #include <algorithm>
 #include "../settings.h"
@@ -108,6 +109,39 @@ void poly_integer_add(poly_t *c, poly_t *a, cuyasheint_t b);
  */
 
 void poly_integer_mul(poly_t *c, poly_t *a, cuyasheint_t b);
+
+/**
+ * [poly_biginteger_mul description]
+ * @param c [description]
+ * @param a [description]
+ * @param b [description]
+ */
+void poly_biginteger_mul(poly_t *c, poly_t *a, bn_t b);
+
+/**
+ * [poly_biginteger_mul description]
+ * @param c [description]
+ * @param a [description]
+ * @param b [description]
+ */
+void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b);
+
+/**
+ * [poly_reduce description]
+ * @param f    [description]
+ * @param nphi x^{nphi} - 1
+ * @param nq   2^{nq} - 1
+ */
+void poly_reduce(poly_t *f, int nphi, int nq);
+
+/**
+ * computes the polynomial inverse in R_q
+ * @param fInv [description]
+ * @param f    [description]
+ * @param nphi x^{nphi} - 1
+ * @param nq   2^{nq} - 1
+ */
+void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq);
 
 /**
  * print a polynomial

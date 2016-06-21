@@ -784,6 +784,7 @@ __host__ Complex* CUDAFunctions::callPolynomialcuFFTOPInteger(
 }
 
 __global__ void polynomialOPDigit(const int opcode,
+                                      bn_t *b,
                                       bn_t *a,
                                       const bn_t digit,
                                       const int N
@@ -803,22 +804,23 @@ __global__ void polynomialOPDigit(const int opcode,
       if(tid == 0){
 
         nwords = max_d(a[tid].used,digit.used);
-        carry = bn_addn_low(a[tid].dp, a[tid].dp, digit.dp,nwords);
-        a[tid].used = nwords;
+        carry = bn_addn_low(b[tid].dp, a[tid].dp, digit.dp,nwords);
+        b[tid].used = nwords;
 
         /* Equivalent to "If has a carry, add as last word" */
-        a[tid].dp[a[tid].used] = carry;
-        a[tid].used += (carry > 0);
+        b[tid].dp[b[tid].used] = carry;
+        b[tid].used += (carry > 0);
       }
       break;
     case MUL:
       assert(a[tid].alloc >= STD_BNT_WORDS_ALLOC);
       assert(digit.alloc >= STD_BNT_WORDS_ALLOC);
 
-      bn_muln_low(a[tid].dp,
+      bn_muln_low(b[tid].dp,
                   a[tid].dp,
                   digit.dp,
                   STD_BNT_WORDS_ALLOC);
+      b[tid].used = a[tid].used;
       break;
     default:
       //This case shouldn't be used. 
@@ -831,6 +833,7 @@ __global__ void polynomialOPDigit(const int opcode,
 
 __host__ void CUDAFunctions::callPolynomialOPDigit( const int opcode,
                                                             cudaStream_t stream,
+                                                            bn_t *b,
                                                             bn_t *a,
                                                             bn_t digit,
                                                             const int N){
@@ -842,6 +845,7 @@ __host__ void CUDAFunctions::callPolynomialOPDigit( const int opcode,
   const dim3 blockDim(ADDBLOCKXDIM);
 
   polynomialOPDigit<<< gridDim,blockDim, 1, stream>>> ( opcode,
+                                                        b,
                                                         a,
                                                         digit,
                                                         N);

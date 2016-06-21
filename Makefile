@@ -19,8 +19,8 @@ OBJ = $(PWD)/obj
 
 all: tests
 
-tests: test.o operators.o polynomial.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o
-	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/test $(OBJ)/test.o $(OBJ)/polynomial.o $(OBJ)/operators.o $(OBJ)/cuda_distribution.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/logging.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+tests: test.o operators.o polynomial.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o yashe.o
+	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/test $(OBJ)/test.o $(OBJ)/polynomial.o $(OBJ)/operators.o $(OBJ)/cuda_distribution.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/logging.o $(OBJ)/log.o $(OBJ)/yashe.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
 
 test.o: $(SRC)/test/test.cpp
 	$(CC) -c $(SRC)/test/test.cpp -o $(OBJ)/test.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)
@@ -50,8 +50,8 @@ cuda_ciphertext.o:cuda_ciphertext.cu
 distribution.o:$(SRC)/distribution/distribution.cpp
 	$(CC) -c $(SRC)/distribution/distribution.cpp -o $(OBJ)/distribution.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)
 
-yashe.o:yashe.cpp
-	$(CC) -c yashe.cpp -o yashe.o $(NTL) $(OPENMP) $(LCUDA) $(ICUDA)
+yashe.o:$(SRC)/yashe/yashe.cpp
+	$(CC) -c $(SRC)/yashe/yashe.cpp -o $(OBJ)/yashe.o $(NTL) $(OPENMP) $(LCUDA) $(ICUDA)
 
 clean:
 	rm -f $(OBJ)/*.o

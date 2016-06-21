@@ -115,6 +115,7 @@ void poly_add(poly_t *c, poly_t *a, poly_t *b){
 												ADD,
 												NULL);
 	#endif
+
 	c->status = TRANSSTATE;
 }
 /**
@@ -143,6 +144,7 @@ void poly_mul(poly_t *c, poly_t *a, poly_t *b){
 	                                            CUDAFunctions::N*CRTPrimes.size(),
 	                                            NULL);
 	#endif
+
 	c->status = TRANSSTATE;
 }
 
@@ -152,7 +154,7 @@ void poly_mul(poly_t *c, poly_t *a, poly_t *b){
  * @param a [input]
  * @param b [input]
  */
-void poly_integer_add(poly_t *c, poly_t *a, ZZ b){
+void poly_integer_add(poly_t *c, poly_t *a, cuyasheint_t b){
 	while(a->status != TRANSSTATE)
 		poly_elevate(a);
 
@@ -161,7 +163,7 @@ void poly_integer_add(poly_t *c, poly_t *a, ZZ b){
 	                                          ADD,
 	                                          NULL,
 	                                          a->d_coefs,
-	                                          0,
+	                                          b,
 	                                          CUDAFunctions::N,
 	                                          CRTPrimes.size()
                                           );
@@ -170,11 +172,13 @@ void poly_integer_add(poly_t *c, poly_t *a, ZZ b){
 	                                          ADD,
 	                                          NULL,
 	                                          a->d_coefs_transf,
-	                                          0,
+	                                          b,
 	                                          CUDAFunctions::N,
 	                                          CRTPrimes.size()
                                           );
 	#endif
+
+	c->status = TRANSSTATE;
 }
 
 /**
@@ -207,9 +211,121 @@ void poly_integer_mul(poly_t *c, poly_t *a, cuyasheint_t b){
 	                                          CRTPrimes.size()
                                           );
 	#endif
+
+	c->status = TRANSSTATE;
 }
 
-// Step to the next polynomial status
+/**
+ * [poly_biginteger_mul description]
+ * @param c [description]
+ * @param a [description]
+ * @param b [description]
+ */
+void poly_biginteger_mul(poly_t *c, poly_t *a, bn_t b){
+	if(a->status != HOSTSTATE)
+		poly_elevate(a);
+	else
+		// TRANSTATE
+		poly_demote(a);
+	
+	// Big integers on the GPU
+	poly_icrt(a);
+
+    CUDAFunctions::callPolynomialOPDigit( MUL,
+                                          NULL,
+                                          c->d_bn_coefs,
+                                          a->d_bn_coefs,
+                                          b,
+                                          CUDAFunctions::N);
+
+    // Back to CRTSTATE
+    callCRT(  c->d_bn_coefs,
+	          CUDAFunctions::N,
+	          c->d_coefs,
+	          CUDAFunctions::N,
+	          CRTPrimes.size(),
+	          0x0
+    );
+
+	c->status = CRTSTATE;
+}
+
+/**
+ * [poly_biginteger_mul description]
+ * @param c [description]
+ * @param a [description]
+ * @param b [description]
+ */
+void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b){
+  bn_t B;
+  get_words(&B,b);
+  poly_biginteger_mul(c,a,B);
+}
+
+void poly_reduce(poly_t *a, int nphi, int nq){
+	const unsigned int half = nphi-1;     
+	
+	///////////
+	// To-do //
+	///////////
+	log_notice("reducing on HOST");
+
+	// #pragma omp parallel for
+	for(int i = 0; (i <= half) && (i + half + 1 <= poly_get_deg(a)); i++){
+		poly_set_coeff(a, i, poly_get_coeff(a, i) - poly_get_coeff(a, i+half+1) );
+		poly_set_coeff(a, i+half+1, to_ZZ(0));
+	}
+
+	ZZ q = NTL::power2_ZZ(nq)-1;
+	for(int i = 0; i <= poly_get_deg(a); i++)
+		poly_set_coeff(a, i, poly_get_coeff(a, i) % q);
+
+	poly_elevate(a);
+	poly_elevate(a);
+}
+
+/**
+ * computes the polynomial inverse in R_q
+ * @param fInv [description]
+ * @param f    [description]
+ * @param nphi x^{nphi} - 1
+ * @param nq   2^{nq} - 1
+ */
+void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq){
+	///////////////////////////////
+	// This is a very ugly hack. //
+	///////////////////////////////
+
+	//
+	ZZ_pEX ntl_f;
+	for(int i = 0; i <= poly_get_deg(f); i++)
+	NTL::SetCoeff(ntl_f,i,conv<ZZ_p>(poly_get_coeff(f,i)));
+	ZZ_pEX ntl_phi;
+	NTL::SetCoeff(ntl_phi,0,conv<ZZ_p>(1));
+	NTL::SetCoeff(ntl_phi,nphi,conv<ZZ_p>(1));
+
+	ZZ_pEX inv_f_ntl =  NTL::InvMod(ntl_f, ntl_phi);
+
+	poly_init(fInv);
+	for(int i = 0; i <= nphi;i++){
+		ZZ ntl_value;
+		if( NTL::IsZero(NTL::coeff(inv_f_ntl,i)) )
+			// Without this, NTL raises an exception when we call rep()
+			ntl_value = 0L;
+		else
+			ntl_value = conv<ZZ>(NTL::rep(NTL::coeff(inv_f_ntl,i))[0]);
+
+			poly_set_coeff(fInv,i,ntl_value);
+	}
+
+	fInv->status = HOSTSTATE;
+
+}
+
+/**
+ * Step to the next polynomial status
+ * @param a [description]
+ */
 void poly_elevate(poly_t *a){
 
 	if(a->status ==HOSTSTATE){

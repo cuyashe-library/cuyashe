@@ -158,6 +158,7 @@ class CUDAFunctions{
                                                       const int NPolis);
     static void callPolynomialOPDigit( const int opcode,
                                             cudaStream_t stream,
+                                            bn_t *b,
                                             bn_t *a,
                                             bn_t digit,
                                             const int N);
