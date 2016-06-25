@@ -17,13 +17,23 @@ SRC = $(PWD)/src
 BIN = $(PWD)/bin
 OBJ = $(PWD)/obj
 
-all: tests
+all: tests benchmarks
 
 tests: test.o operators.o polynomial.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o yashe.o
 	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/test $(OBJ)/test.o $(OBJ)/polynomial.o $(OBJ)/operators.o $(OBJ)/cuda_distribution.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/logging.o $(OBJ)/log.o $(OBJ)/yashe.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
 
+benchmarks: benchmark_poly.o benchmark_yashe.o cuda_bn.o polynomial.o logging.o distribution.o cuda_distribution.o yashe.o
+	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_poly $(OBJ)/benchmark_poly.o $(OBJ)/polynomial.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/logging.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_yashe $(OBJ)/benchmark_yashe.o $(OBJ)/polynomial.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/logging.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+
 test.o: $(SRC)/test/test.cpp
 	$(CC) -c $(SRC)/test/test.cpp -o $(OBJ)/test.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)
+
+benchmark_poly.o: $(SRC)/benchmark/polynomial.cpp
+	$(CC) -c $(SRC)/benchmark/polynomial.cpp -o $(OBJ)/benchmark_poly.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)
+
+benchmark_yashe.o: $(SRC)/benchmark/yashe.cpp
+	$(CC) -c $(SRC)/benchmark/yashe.cpp -o $(OBJ)/benchmark_yashe.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)
 
 operators.o:$(SRC)/cuda/operators.cu
 	$(CUDA_CC) $(CUDA_ARCH) -c $(SRC)/cuda/operators.cu -o $(OBJ)/operators.o $(LCUDA) $(ICUDA) -lcufft --relocatable-device-code true -Xcompiler $(OPENMP)

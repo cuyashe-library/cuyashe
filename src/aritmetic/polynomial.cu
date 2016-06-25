@@ -30,14 +30,7 @@ ZZ CRTProduct;
 std::vector<ZZ> CRTMpi;
 std::vector<cuyasheint_t> CRTInvMpi;
 
-void poly_copy_to_device(poly_t *a);
-void poly_copy_to_host(poly_t *a);
 
-void poly_demote(poly_t *a);
-void poly_elevate(poly_t *a);
-
-void poly_crt(poly_t *a);
-void poly_icrt(poly_t *a);
 
 std::map<ZZ, std::pair<cuyasheint_t*,int>> reciprocals;
 
@@ -104,14 +97,14 @@ void poly_add(poly_t *c, poly_t *a, poly_t *b){
 	CUDAFunctions::callPolynomialAddSub(	c->d_coefs,
 											a->d_coefs,
 											b->d_coefs,
-											CUDAFunctions::N,
+											CUDAFunctions::N*CRTPrimes.size(),
 											NULL);
 
 	#else
 	CUDAFunctions::callPolynomialcuFFTAddSub(	c->d_coefs_transf,
 												a->d_coefs_transf,
 												b->d_coefs_transf,
-												CUDAFunctions::N,
+												CUDAFunctions::N*CRTPrimes.size(),
 												ADD,
 												NULL);
 	#endif
@@ -162,6 +155,7 @@ void poly_integer_add(poly_t *c, poly_t *a, cuyasheint_t b){
 	CUDAFunctions::callPolynomialOPInteger (
 	                                          ADD,
 	                                          NULL,
+	                                          c->d_coefs,
 	                                          a->d_coefs,
 	                                          b,
 	                                          CUDAFunctions::N,
@@ -171,6 +165,7 @@ void poly_integer_add(poly_t *c, poly_t *a, cuyasheint_t b){
 	CUDAFunctions::callPolynomialcuFFTOPInteger (
 	                                          ADD,
 	                                          NULL,
+	                                          c->d_coefs_transf,
 	                                          a->d_coefs_transf,
 	                                          b,
 	                                          CUDAFunctions::N,
@@ -196,8 +191,9 @@ void poly_integer_mul(poly_t *c, poly_t *a, cuyasheint_t b){
 	CUDAFunctions::callPolynomialOPInteger (
 	                                          MUL,
 	                                          NULL,
+	                                          c->d_coefs,
 	                                          a->d_coefs,
-	                                          0,
+	                                          b,
 	                                          CUDAFunctions::N,
 	                                          CRTPrimes.size()
                                           );
@@ -205,8 +201,9 @@ void poly_integer_mul(poly_t *c, poly_t *a, cuyasheint_t b){
 	CUDAFunctions::callPolynomialcuFFTOPInteger (
 	                                          MUL,
 	                                          NULL,
+	                                          c->d_coefs_transf,
 	                                          a->d_coefs_transf,
-	                                          0,
+	                                          b,
 	                                          CUDAFunctions::N,
 	                                          CRTPrimes.size()
                                           );
@@ -439,13 +436,17 @@ void poly_icrt(poly_t *a){
 
 }
 
-void poly_print(poly_t *a){
-	while(a->status != HOSTSTATE){
+std::string poly_print(poly_t *a){
+	while(a->status != HOSTSTATE)
 		poly_demote(a);
-	}
+
+	std::ostringstream oss;
 	for(int i = 0; i < a->coefs.size(); i++)
-		std::cout << a->coefs[i] << ", ";
-	std::cout << std::endl;
+		oss << a->coefs[i] << ", ";
+	return oss.str();
+	// for(int i = 0; i < a->coefs.size(); i++)
+	// 	std::cout << a->coefs[i] << ", ";
+	// std::cout << std::endl;
 }
 
 /**

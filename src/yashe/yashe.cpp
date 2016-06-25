@@ -41,48 +41,63 @@ void Yashe::generate_keys(){
   log_debug("generate_keys:");
   log_debug("nphi: " + nphi);
   log_debug("nq: " + nq);
-  // log_debug("phi: " << phi.to_string());
   log_debug("t: " + t);
-  // log_debug("w: " + w);
-
-  // Sample
-  poly_t g;
-  xkey.get_sample(&g, nphi-1);
+  // log_debug("w: " << w);
 
   // Compute f and fInv
   poly_t fInv;
   while ( 1 == 1 ){
-  	poly_t fl;
-  	xkey.get_sample(&fl, nphi-1);
+    poly_t fl;
+    xkey.get_sample(&fl, nphi-1);
+    // log_notice("fl: " + poly_print(&fl));
 
-  	// f = fl*t + 1
-  	poly_integer_mul(&f,&fl,t);
-  	poly_integer_add(&f,&f,(cuyasheint_t)1);
-  	poly_reduce(&f, nphi, nq); // to-do
+    // f = fl*t + 1
+    poly_integer_mul(&f,&fl,t);
+    poly_integer_add(&f,&f,(cuyasheint_t)1);
+    poly_reduce(&f, nphi, nq); 
 
-	try{
+  try{
       log_debug("will try to compute fInv");
-      poly_invmod(&fInv,&f,nphi, nq); // to-do
+      // poly_invmod(&fInv,&f,nphi, nq); 
+      fInv = f;
       log_debug("fInv computed.");
+      // log_notice("fInv: " + poly_print(&fInv));
       break;
     } catch (exception& e)
     {
       log_warn("f has no modular inverse.");
     }
   }
+  ////////////
+  // DEBUG  //
+  ////////////
+  // poly_clear(&f);
+  // poly_init(&f);
+
+  // poly_set_coeff(&f,0,to_ZZ(1));
+  // poly_set_coeff(&f,1,to_ZZ(0));
+  // poly_set_coeff(&f,2,to_ZZ(8174));
+  // poly_set_coeff(&f,3,to_ZZ(1));
+  // log_notice("f: " + poly_print(&f));
 
   // ff = f*f
   poly_mul(&ff,&f,&f);
   poly_reduce(&ff,nphi,nq);
-  	
+    
   // tff = ff*t
   poly_integer_mul(&tff,&ff,t);
   poly_reduce(&tff,nphi,nq);
 
+  // Sample
+  poly_t g;
+  xkey.get_sample(&g, nphi-1);
+  // log_notice("g: " + poly_print(&g));
   // h = fInv*g*t
   poly_mul(&h, &fInv,&g);
   poly_integer_mul(&h, &h, t);
+  poly_reduce(&h, nphi, nq);
 
+  // log_notice("h: " + poly_print(&h));
   /////////
   // q/t //
   /////////
@@ -94,51 +109,75 @@ void Yashe::generate_keys(){
   ///////////////////
   gamma.resize(lwq);
 
-
   ///////////
   // TO-DO //
   ///////////
 }
 poly_t Yashe::encrypt(poly_t m){
+  // log_notice("Encrypt");
+
 	// Sample
   poly_t ps,e; 
-	xerr.get_sample(&ps,nphi-1);
-	xerr.get_sample(&e,nphi-1);
+  xerr.get_sample(&ps,nphi-1);
+  xerr.get_sample(&e,nphi-1);
+  poly_reduce(&e,nphi,nq);
+  poly_reduce(&ps,nphi,nq);
+  // log_notice("ps: " + poly_print(&ps));
+  // log_notice("e: " + poly_print(&e));
+  
+  // poly_init(&ps);
+  // poly_init(&e);
+  // poly_set_coeff(&ps,0,to_ZZ(8188));
+  // poly_set_coeff(&ps,1,to_ZZ(0));
+  // poly_set_coeff(&ps,2,to_ZZ(8190));
+  // poly_set_coeff(&ps,3,to_ZZ(1));
 
-	// mdelta = m * delta
+  // poly_set_coeff(&e,0,to_ZZ(2));
+  // poly_set_coeff(&e,1,to_ZZ(1));
+  // poly_set_coeff(&e,2,to_ZZ(0));
+  // poly_set_coeff(&e,3,to_ZZ(8190));
+
+	// 
 	poly_biginteger_mul(&mdelta,&m,delta);
 
-	// e = mdelta + e
-	poly_add(&e,&e,&mdelta);
-	// ps = ps * h
-	poly_mul(&ps,&ps,&h);
+  // log_notice("m * delta: " + poly_print(&mdelta));
 
-	// c = e + ps
+	// 
+	poly_add(&e,&e,&mdelta);
+  // log_notice("mdelta + e: " + poly_print(&e));
+	
+  //
+	poly_mul(&ps,&ps,&h);
+  // log_notice("ps * h: " + poly_print(&ps));
+
+	//
 	poly_t c;
 	poly_init(&c);
 	poly_add(&c,&e,&ps);
 
-	// reduce c
-	poly_reduce(&c, nphi, nq);
+  //
+  poly_reduce(&c, nphi, nq);
+  // log_notice("c: " + poly_print(&c));
 	return c;
 }
 
 poly_t Yashe::decrypt(poly_t c){
+  // log_notice("Decrypt");
+
 	poly_t m;
 	poly_init(&m);
 
-	// m = f*c
 	poly_mul(&m, &f, &c);
-	// reduce
 	poly_reduce(&m, nphi, nq);
+  // log_notice("[c*f]_q \\in R: " + poly_print(&m));
 
-	// m = m*t
-	poly_integer_mul(&m, &m, t);
+  poly_integer_mul(&m, &m, t);
+  // log_notice("[c*f]_q \\in R * t: " + poly_print(&m));
 
 	// division by q to the nearest
 	for(int i = 0; i <= poly_get_deg(&m); i++){
-		ZZ coeff = poly_get_coeff(&m,i);
-	  ZZ diff = coeff % q;
+    ZZ coeff = poly_get_coeff(&m,i);
+    ZZ diff = coeff % q;
 	  if(2*diff > q)
 	   poly_set_coeff(&m,i,coeff/q +1);
 	  else

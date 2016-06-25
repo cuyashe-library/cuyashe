@@ -6,6 +6,7 @@
 #include <NTL/ZZ_pEX.h>
 #include <map>
 #include <algorithm>
+#include <sstream>
 #include "../settings.h"
 #include "../cuda/operators.h"
 #include "../cuda/cuda_bn.h"
@@ -68,6 +69,39 @@ struct polynomial {
  * @param a [description]
  */
 void poly_init(poly_t *a);
+
+/**
+ * [poly_copy_to_device description]
+ * @param a [description]
+ */
+void poly_copy_to_device(poly_t *a);
+/**
+ * [poly_copy_to_host description]
+ * @param a [description]
+ */
+void poly_copy_to_host(poly_t *a);
+
+/**
+ * [poly_demote description]
+ * @param a [description]
+ */
+void poly_demote(poly_t *a);
+/**
+ * [poly_elevate description]
+ * @param a [description]
+ */
+void poly_elevate(poly_t *a);
+
+/**
+ * [poly_crt description]
+ * @param a [description]
+ */
+void poly_crt(poly_t *a);
+/**
+ * [poly_icrt description]
+ * @param a [description]
+ */
+void poly_icrt(poly_t *a);
 
 /**
  * returns the polynomial degree
@@ -147,7 +181,7 @@ void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq);
  * print a polynomial
  * @param a [description]
  */
-void poly_print(poly_t *a);
+std::string poly_print(poly_t *a);
 
 /**
  * generates a set of primes for CRT
@@ -203,4 +237,5 @@ void poly_demote(poly_t *a);
 void poly_elevate(poly_t *a);
 
 void poly_set_nth_cyclotomic(poly_t *a, int n);
+void poly_clear(poly_t *a);
 #endif

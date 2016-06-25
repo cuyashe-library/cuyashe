@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "distribution.h"
+#include "../yashe/yashe.h"
 
 /**
  * Generates an uniforme sample on the CRT domain
@@ -24,45 +25,33 @@
  * @param degree [description]
  */
 void Distribution::generate_sample(poly_t *p,int mod,int degree){
+  // for(int i = 0; i < degree; i ++){
+  //   p->coefs[i] = NTL::RandomBnd(2);
+  //   p->coefs[i] -= NTL::RandomBnd(2);
+  //   p->coefs[i] %= (NTL::power2_ZZ(Yashe::nq)-1);
+  // }
+  // if(p->coefs[0] == 0);
+  //   p->coefs[0] = to_ZZ(1);
+  // if(p->coefs[degree] == 0);
+  //   p->coefs[degree] = to_ZZ(1);
+  // p->status = HOSTSTATE;
   callCuGetUniformSample(  p->d_coefs, 
-                            CRTPrimes.size(), 
-                            mod);
+                           degree,
+                           CRTPrimes.size(), 
+                           mod);
   p->status = CRTSTATE;
 }
-
-void Distribution::get_sample(poly_t *p,int degree,int spacing){
-  poly_init(p);
-  int mod;
-  // int rec;
-  // int phase = 0;
-  switch(this->kind){
-    case DISCRETE_GAUSSIAN:
-      mod = 7;
-    break;
-    case BINARY:
-      mod = 2;
-    break;
-    case NARROW:
-      mod = 2;
-    break;
-    default:
-      mod = 100;
-    break;
-  }
-
-  generate_sample(p,mod,degree);
-  return;
-}
-
 
 void Distribution::get_sample(poly_t *p, int degree){
   poly_init(p);
 
   int mod;
-  // int phase = 0;
   switch(this->kind){
     case DISCRETE_GAUSSIAN:
       mod = 7;
+      callCuGetNormalSample(p->d_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
+      p->status = CRTSTATE;
+      return;
     break;
     case BINARY:
       mod = 2;
@@ -75,7 +64,5 @@ void Distribution::get_sample(poly_t *p, int degree){
     break;
   }
 
-
   generate_sample(p,mod,degree);
-  return ;
 }

@@ -48,7 +48,6 @@ extern __constant__ cuyasheint_t M[STD_BNT_WORDS_ALLOC];
 extern __constant__ int M_used;
 extern __constant__ cuyasheint_t u[STD_BNT_WORDS_ALLOC];
 extern __constant__ int u_used;
-extern __constant__ cuyasheint_t CRTPrimesConstant[PRIMES_BUCKET_SIZE];
 
 extern __constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*PRIMES_BUCKET_SIZE];
 extern __constant__ int Mpis_used[PRIMES_BUCKET_SIZE];
@@ -681,9 +680,10 @@ __global__ void polynomialOPInteger(const int opcode,
 }
 
 // Operations between polynomials and integers
-__host__ cuyasheint_t* CUDAFunctions::callPolynomialOPInteger(
+__host__ void CUDAFunctions::callPolynomialOPInteger(
                                                               const int opcode,
                                                               cudaStream_t stream,
+                                                              cuyasheint_t *b,
                                                               cuyasheint_t *a,
                                                               cuyasheint_t integer_array,
                                                               const int N,
@@ -696,20 +696,14 @@ __host__ cuyasheint_t* CUDAFunctions::callPolynomialOPInteger(
   const dim3 gridDim(ADDGRIDXDIM);
   const dim3 blockDim(ADDBLOCKXDIM);
 
-  cuyasheint_t *d_pointer;
-  cudaError_t result = cudaMalloc((void**)&d_pointer,
-                                  size*sizeof(cuyasheint_t));        
-  assert(result == cudaSuccess);
-
   polynomialOPInteger<<< gridDim,blockDim, 0, stream>>> ( opcode,
                                                           a,
                                                           integer_array,
-                                                          d_pointer,
+                                                          b,
                                                           N,
                                                           NPolis);
   assert(cudaGetLastError() == cudaSuccess);
 
-  return d_pointer;
 }
 
 __global__ void polynomialcuFFTOPInteger( const int opcode,
@@ -736,9 +730,8 @@ __global__ void polynomialcuFFTOPInteger( const int opcode,
         output[tid] = ComplexAdd(a[tid],operand) ;
       break;
     case SUB:
-      if(cid == 0){
+      if(cid == 0)
         output[tid] = ComplexSub(a[tid],operand);
-      }
       break;
     case MUL:
         output[tid] = ComplexMul(a[tid] , operand);
@@ -752,9 +745,10 @@ __global__ void polynomialcuFFTOPInteger( const int opcode,
 
 }
 
-__host__ Complex* CUDAFunctions::callPolynomialcuFFTOPInteger(
+__host__ void CUDAFunctions::callPolynomialcuFFTOPInteger(
                                                               const int opcode,
                                                               cudaStream_t stream,
+                                                              Complex *b,
                                                               Complex *a,
                                                               cuyasheint_t integer,
                                                               const int N,
@@ -767,20 +761,14 @@ __host__ Complex* CUDAFunctions::callPolynomialcuFFTOPInteger(
   const dim3 gridDim(ADDGRIDXDIM);
   const dim3 blockDim(ADDBLOCKXDIM);
 
-  Complex *d_pointer;
-  cudaError_t result = cudaMalloc((void**)&d_pointer,
-                                  size*sizeof(Complex));        
-  assert(result == cudaSuccess);
-
   polynomialcuFFTOPInteger<<< gridDim,blockDim, 0, stream>>> ( opcode,
                                                           a,
                                                           integer,
-                                                          d_pointer,
+                                                          b,
                                                           N,
                                                           NPolis);
   assert(cudaGetLastError() == cudaSuccess);
 
-  return d_pointer;
 }
 
 __global__ void polynomialOPDigit(const int opcode,

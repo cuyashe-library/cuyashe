@@ -109,12 +109,11 @@ class Distribution{
     call_setup_kernel();
 
   }
-  void get_sample(poly_t *p, int degree,int spacing);
   void get_sample(poly_t *p, int degree);
   void generate_sample(poly_t *p,int mod,int degree);
 private:
-  void callCuGetUniformSample(cuyasheint_t *coefs,int N, int mod);
-  void callCuGetNormalSample(cuyasheint_t *array, int N, float mean, float stddev);
+  void callCuGetUniformSample(cuyasheint_t *coefs,int N, int NPrimes, int mod);
+  void callCuGetNormalSample(cuyasheint_t *array, int N, float mean, float stddev, int NPrimes);
 __host__ void call_setup_kernel();
 
 };

@@ -2,10 +2,14 @@
 
 void log_init(){
 	log_init(LL_TRACE, "default.log", "./log/");
+	log_notice("");
+	log_notice("...Starting...");
 }
 
 void log_init(std::string s){
 	log_init(LL_TRACE, s.c_str(), "./log/");
+	log_notice("");
+	log_notice("...Starting...");
 }
 
 void log_notice(std::string s){

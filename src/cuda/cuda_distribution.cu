@@ -35,16 +35,32 @@ __host__ void Distribution::call_setup_kernel(){
 }
 
 
-__global__ void generate_random_numbers(cuyasheint_t* coefs, curandState *states, int N, int mod) {
+__global__ void generate_narrow_random_numbers(	cuyasheint_t *coefs,
+												curandState *states,
+												int N,
+												int spacing,
+												int NPrimes,
+												int mod ) {
 
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (tid < N) 
-        coefs[tid] = (cuyasheint_t)(curand_uniform(&states[tid])*mod);
-    
+    if (tid <= N){	
+    	int value = llrintf(curand_uniform(&states[tid])); // [-1, 0 , 1];
+    	value -= llrintf(curand_uniform(&states[tid]));
+    	
+    	if(value == 0 && tid == N)
+    		value = 1;
+
+    	for(int i = 0; i < NPrimes; i++)
+    		coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
+    }
+        
 }
 
-__host__  void Distribution::callCuGetUniformSample(cuyasheint_t *coefs, int N, int mod){
+__host__  void Distribution::callCuGetUniformSample(	cuyasheint_t *coefs,
+														int N,
+														int NPrimes,
+														int mod ){
 	/**
 	 * Generates N random integers
 	 */
@@ -57,21 +73,60 @@ __host__  void Distribution::callCuGetUniformSample(cuyasheint_t *coefs, int N, 
 	 * Generate values
 	 */
 	assert(N <= MAX_DEGREE);
-	generate_random_numbers<<<blockDim,gridDim>>>(coefs,states,N,mod);
+	generate_narrow_random_numbers<<<gridDim,blockDim,0,NULL>>>( 	coefs,
+																	states,
+																	N,
+																	CUDAFunctions::N,
+																	NPrimes,
+																	mod );
 	assert(cudaGetLastError() == cudaSuccess);
-	cudaDeviceSynchronize();
 }
 
-__host__ void Distribution::callCuGetNormalSample(cuyasheint_t *array, int N, float mean, float stddev){
-	///////////
-	// To-do //
-	///////////
+__global__ void generate_normal_random_numbers(	cuyasheint_t *coefs,
+												curandState *states,
+												int N,
+												int spacing,
+												float mean, 
+												float stddev,
+												int NPrimes) {
 
-	curandGenerateLogNormal( gen, 
-							(float*)array, 
-							N,
-							mean,
-							stddev);
+    const int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+    if (tid <= N){	
+    	int value = llrintf(curand_log_normal(&states[tid],mean, stddev)); 
+    	for(int i = 0; i < NPrimes; i++){
+    		coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
+    	}
+    }
+        
+}
+
+__host__ void Distribution::callCuGetNormalSample(	cuyasheint_t *coefs,
+													int N,
+													float mean,
+													float stddev,
+													int NPrimes){
+		/**
+	 * Generates N random integers
+	 */
+	
+	const int ADDGRIDXDIM = (N%ADDBLOCKXDIM == 0? N/ADDBLOCKXDIM : N/ADDBLOCKXDIM + 1);
+	const dim3 gridDim(ADDGRIDXDIM);
+	const dim3 blockDim(ADDBLOCKXDIM);
+
+	/** 
+	 * Generate values
+	 */
+	assert(N <= MAX_DEGREE);
+	generate_normal_random_numbers<<<blockDim,gridDim,0,NULL>>>( 	coefs,
+																	states,
+																	N,
+																	CUDAFunctions::N,
+																	mean,
+																	stddev,
+																	NPrimes );
+	assert(cudaGetLastError() == cudaSuccess);
+	
 
 
 }

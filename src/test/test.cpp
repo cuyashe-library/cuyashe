@@ -63,10 +63,13 @@ struct YasheSuite
         log_init("test.log");
 
         // Init
-        OP_DEGREE = 32;
-        int mersenne_n = 127;
+        OP_DEGREE = 4;
+        // OP_DEGREE = 32;
+        int mersenne_n = 13;
+        // int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
-        t = 1024;
+        t = 17;
+        // t = 1024;
         ZZ w = NTL::power2_ZZ(32);
 
         gen_crt_primes(q,OP_DEGREE);
@@ -74,7 +77,7 @@ struct YasheSuite
         poly_init(&phi);
         poly_set_nth_cyclotomic(&phi,2*OP_DEGREE);
         poly_print(&phi);
-        std::cout << "Degree: " << poly_get_deg(&phi) << std::endl;
+        BOOST_TEST_MESSAGE("Degree: " << poly_get_deg(&phi));
 
         // Init NTL
         ZZ_p::init(q);
@@ -258,7 +261,7 @@ BOOST_AUTO_TEST_CASE(encryptdecrypt)
     poly_t m;
     poly_init(&m);
 
-    poly_set_coeff(&m,0,to_ZZ(42));
+    poly_set_coeff(&m,0,to_ZZ(13));
 
     poly_t c = cipher->encrypt(m); //
 

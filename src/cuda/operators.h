@@ -38,7 +38,7 @@ NTL_CLIENT
 #define MAX_PRIMES_ON_C_MEMORY 4096
 // cuyasheint_t *CRTPrimesGlobal;
 typedef double2 Complex;
-
+extern __constant__ cuyasheint_t CRTPrimesConstant[PRIMES_BUCKET_SIZE];
 
 __host__ bool is_power_of(uint64_t a, uint64_t b);
 class CUDAFunctions{
@@ -130,8 +130,9 @@ class CUDAFunctions{
                                                         cuyasheint_t *b,
                                                         const int size,
                                                         cudaStream_t stream);
-    static cuyasheint_t* callPolynomialOPInteger(   const int opcode,
+    static void callPolynomialOPInteger(   const int opcode,
                                                     cudaStream_t stream,
+                                                    cuyasheint_t *b,
                                                     cuyasheint_t *a,
                                                     cuyasheint_t integer_array,
                                                     const int N,
@@ -142,9 +143,10 @@ class CUDAFunctions{
                                                     cuyasheint_t integer,
                                                     const int N,
                                                     const int NPolis);
-    static Complex* callPolynomialcuFFTOPInteger(
+    static void callPolynomialcuFFTOPInteger(
                                                   const int opcode,
                                                   cudaStream_t stream,
+                                                  Complex *b,
                                                   Complex *a,
                                                   cuyasheint_t integer,
                                                   const int N,
