@@ -49,9 +49,9 @@ extern __constant__ int M_used;
 extern __constant__ cuyasheint_t u[STD_BNT_WORDS_ALLOC];
 extern __constant__ int u_used;
 
-extern __constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*PRIMES_BUCKET_SIZE];
-extern __constant__ int Mpis_used[PRIMES_BUCKET_SIZE];
-extern __constant__ cuyasheint_t invMpis[PRIMES_BUCKET_SIZE];
+extern __constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*COPRIMES_BUCKET_SIZE];
+extern __constant__ int Mpis_used[COPRIMES_BUCKET_SIZE];
+extern __constant__ cuyasheint_t invMpis[COPRIMES_BUCKET_SIZE];
 
 __constant__ cuyasheint_t W16[225]; 
 __constant__ cuyasheint_t WInv16[225]; 
@@ -71,7 +71,7 @@ __host__ __device__ inline uint64_t s_sub(uint64_t a,uint64_t b);
 static __device__ inline Complex ComplexMul(Complex a, Complex b);
 static __device__ inline Complex ComplexAdd(Complex a, Complex b);
 static __device__ inline Complex ComplexSub(Complex a, Complex b);
-
+extern __device__ void mersenneDiv(  bn_t *x, int q_bits);
 
 ///////////////////////////////////////
 /// ADD
@@ -803,12 +803,13 @@ __global__ void polynomialOPDigit(const int opcode,
     case MUL:
       assert(a[tid].alloc >= STD_BNT_WORDS_ALLOC);
       assert(digit.alloc >= STD_BNT_WORDS_ALLOC);
-
+      bn_zero_non_used(&b[tid]);
       bn_muln_low(b[tid].dp,
                   a[tid].dp,
                   digit.dp,
                   STD_BNT_WORDS_ALLOC);
-      b[tid].used = a[tid].used;
+      b[tid].used = a[tid].used + 1;
+      bn_adjust_used(&b[tid]);
       break;
     default:
       //This case shouldn't be used. 
@@ -1271,7 +1272,7 @@ __global__ void polynomialReductionCRT(cuyasheint_t *a,const int half,const int 
 
 }
 
-__global__ void polynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q){     
+__global__ void polynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q, const int q_bits){     
   ////////////////////////////////////////////////////////
   // This kernel must be executed with (N-half) threads //
   ////////////////////////////////////////////////////////
@@ -1280,34 +1281,54 @@ __global__ void polynomialReductionCoefs(bn_t *a,const int half,const int N,cons
   const int cid = tid % (N-half);
 
   if(cid + half + 1 < N){
+    bn_adjust_used(&a[cid]);
+    bn_adjust_used(&a[cid+half+1]);
 
+    /////////////
+    // a % phi //
+    /////////////
     // a[i] = a[i] - a[i+half]
-    int carry = bn_subn_low(a[cid].dp, a[cid].dp, a[cid + half + 1].dp, min_d(a[cid].used,a[cid + half + 1].used));
-    a[cid].used = min_d(a[cid].used,a[cid + half + 1].used);
+    int carry = bn_subn_low(  a[cid].dp,
+                              a[cid].dp,
+                              a[cid + half + 1].dp,
+                              min_d(a[cid].used, a[cid + half + 1].used)
+                            );
+    bn_adjust_used(&a[cid]);
     
     if(carry == BN_NEG){
       // q - (UINT64_MAX - c)
-      // compl2 == UINT64_MAX -C
+      // compl2 == UINT64_MAX - C      
       
-      // SOMAR Q
-      // carry = bn_addn_low(a[cid].dp,q.dp,a[cid].dp,q.used);
-      // a[cid].used = max_d(a[cid].used,q.used);
-      // a[cid].dp[a[cid].used] = carry;
-      // a[cid].used += (carry > 0);
-      // bn_zero_non_used(&a[cid]);
-      
-      
-      bn_2_compl(&a[cid]);
-      carry = bn_subn_low(a[cid].dp,q.dp,a[cid].dp,q.used);
+      // bn_2_compl(&a[cid]);
+      carry = bn_subn_low(  a[cid].dp,
+                            q.dp,
+                            a[cid].dp,
+                            q.used );
       assert(carry == BN_POS);
       a[cid].used = q.used;
       bn_zero_non_used(&a[cid]);
     }
-    
-
-    __syncthreads();
     bn_zero(&a[cid + half + 1]);
   }
+
+}
+
+__host__ void CUDAFunctions::callPolynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q, const int nq){  
+    const int size = (N-half);
+
+    dim3 blockDim(ADDBLOCKXDIM);
+    dim3 gridDim(size/ADDBLOCKXDIM + (size % ADDBLOCKXDIM == 0? 0:1));
+    /**
+     * Polynomial reduction
+     */
+    polynomialReductionCoefs<<< gridDim,blockDim, 0, NULL>>>( a,
+                                                              half,
+                                                              N,
+                                                              q,
+                                                              nq);
+    cudaError_t result = cudaGetLastError();
+    assert(result == cudaSuccess);
+
 }
 
 __host__ void  CUDAFunctions::write_crt_primes(){

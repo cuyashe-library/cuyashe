@@ -41,15 +41,16 @@ NTL_CLIENT
  
 
 __host__  void bn_new(bn_t *a);
-__device__ int util_bits_dig(cuyasheint_t a);
 __host__ __device__ void bn_zero(bn_t *a);
 __host__ __device__ void bn_zero_non_used(bn_t *a);
+__host__ __device__ void bn_adjust_used(bn_t *a);
 __host__ __device__ bool bn_is_zero(const bn_t* a);
 __host__ __device__ void bn_set_dig(bn_t *a, cuyasheint_t digit);
 __host__  void bn_free(bn_t *a);
 __host__ void bn_grow(bn_t *a,const unsigned int new_size);
 __host__ __device__ void bn_copy(bn_t *a, bn_t *b);
 __host__ __device__ void bn_2_compl(bn_t *a);
+__host__ __device__ int bn_count_bits(bn_t *a);
 __host__ __device__ void bn_bitwise_and(bn_t *a, bn_t *b);
 __host__ __device__ void bn_truncate(bn_t *a, int bits);
 __host__ __device__ uint64_t bn_rshb_low(uint64_t *c, const uint64_t *a, int size, int bits);
@@ -74,7 +75,8 @@ __device__ void bn_muld_low(cuyasheint_t * c,
 									int l, 
 									int h);
 __device__ void bn_mod_barrt(	bn_t *C, 
-								const bn_t *A,const int NCoefs,
+								const bn_t *A,
+								const int NCoefs,
 								const cuyasheint_t * m, 
 								int sm, 
 								const cuyasheint_t * u,
@@ -97,8 +99,8 @@ __host__ __device__ uint32_t bn_sub1_low_32(	uint32_t *c, const uint32_t *a, uin
 __host__ __device__ uint64_t bn_mul1_low(uint64_t *c, const uint64_t *a, uint64_t digit, int size);
 __host__ __device__ uint32_t bn_mul1_low(uint32_t *c, const uint32_t *a, uint32_t digit, int size);
 __host__ __device__ cuyasheint_t bn_mod1_low(const cuyasheint_t *a,
-									const int size,
-									const uint32_t b);
+											const int size,
+											const uint32_t b);
 __host__ void callCuModN(bn_t * c, bn_t * a,int NCoefs,
 		const cuyasheint_t * m, int sm, const cuyasheint_t * u, int su,
 		cudaStream_t stream);

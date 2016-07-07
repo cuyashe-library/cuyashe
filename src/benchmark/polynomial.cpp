@@ -36,6 +36,25 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   return (( stop.tv_sec - start.tv_sec )*BILLION + ( stop.tv_nsec - start.tv_nsec ))/MILLION;
 }
 
+
+ double runInit(int d){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(UNIFORMLY);
+
+  // Init
+  poly_t a;
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    poly_init(&a);
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
  double runAdd(int d){
   struct timespec start, stop;
   Distribution dist;
@@ -91,11 +110,14 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   poly_t a,b,c;
   poly_init(&a);
   dist.generate_sample(&a, 50, d);
+  ZZ q = NTL::power2_ZZ(nq)-1;
+  bn_t Q;
+  get_words(&Q,q);
 
   // Exec
   clock_gettime( CLOCK_REALTIME, &start);
   for(int i = 0; i < N;i++){
-    poly_reduce(&a,nphi,nq);
+    poly_reduce(&a,nphi,Q,nq);
     cudaDeviceSynchronize();
   }
   clock_gettime( CLOCK_REALTIME, &stop);
@@ -144,6 +166,95 @@ double runCRT(int d){
   return compute_time_ms(start,stop)/N;
  }
 
+  double runSamplingUniform(int d){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(UNIFORMLY);
+
+  // Init
+  poly_t a;
+  poly_init(&a);
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    dist.generate_sample(&a, 50, d);
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
+
+double runSamplingDiscreteGaussian(int d, float gaussian_std_deviation, int gaussian_bound){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(DISCRETE_GAUSSIAN,gaussian_std_deviation, gaussian_bound);
+
+  // Init
+  poly_t a;
+  poly_init(&a);
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    dist.generate_sample(&a, 50, d);
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
+double runBigIntegerMulZZ(int d, float gaussian_std_deviation, int gaussian_bound){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(DISCRETE_GAUSSIAN,gaussian_std_deviation, gaussian_bound);
+
+  // Init
+  poly_t a;
+  poly_init(&a);
+
+  dist.generate_sample(&a, 50, d);
+  poly_elevate(&a);
+
+  ZZ v = to_ZZ(42);
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    poly_biginteger_mul(&a,&a,v); 
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
+double runBigIntegerMulBNT(int d, float gaussian_std_deviation, int gaussian_bound){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(DISCRETE_GAUSSIAN,gaussian_std_deviation, gaussian_bound);
+
+  // Init
+  poly_t a;
+  poly_init(&a);
+
+  dist.generate_sample(&a, 50, d);
+  poly_elevate(&a);
+
+  ZZ v = to_ZZ(42);
+  bn_t V;
+  get_words(&V,v);
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    poly_biginteger_mul(&a,&a,V); 
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
 int main(int argc, char* argv[]){
      // Log
     log_init("benchmark.log");
@@ -171,6 +282,8 @@ int main(int argc, char* argv[]){
 	      NTL::SetCoeff(NTL_Phi,i,conv<ZZ_p>(poly_get_coeff(&phi,i)));
 	    ZZ_pE::init(NTL_Phi);
 
+      diff = runInit(d);
+      std::cout << d << " - Initialization) " << diff << " ms" << std::endl;
       diff = runAdd(d);
       std::cout << d << " - Addition) " << diff << " ms" << std::endl;
       diff = runMul(d);
@@ -181,6 +294,14 @@ int main(int argc, char* argv[]){
       std::cout << d << " - CRT) " << diff << " ms" << std::endl;
       diff = runICRT(d);
       std::cout << d << " - ICRT) " << diff << " ms" << std::endl;
+      diff = runSamplingUniform(d);
+      std::cout << d << " - SamplingUniform) " << diff << " ms" << std::endl;
+      diff = runSamplingDiscreteGaussian(d, 8*0.4, 8*6);
+      std::cout << d << " - SamplingDiscreteGaussian) " << diff << " ms" << std::endl;
+      diff = runBigIntegerMulZZ(d, 8*0.4, 8*6);
+      std::cout << d << " - Big-Integer multiplication ZZ) " << diff << " ms" << std::endl;
+      diff = runBigIntegerMulBNT(d, 8*0.4, 8*6);
+      std::cout << d << " - Big-Integer multiplication BNT) " << diff << " ms" << std::endl;
     }
 
 }

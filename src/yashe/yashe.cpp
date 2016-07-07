@@ -20,10 +20,11 @@
 
 int Yashe::nphi;
 int Yashe::nq;
-ZZ Yashe::q = ZZ(0);
+bn_t Yashe::Q;
 bn_t Yashe::qDiv2;
+ZZ Yashe::q = ZZ(0);
 cuyasheint_t Yashe::t = 0;
-ZZ Yashe::delta = to_ZZ(0);
+bn_t Yashe::delta;
 ZZ Yashe::w = ZZ(0);
 int Yashe::lwq = 0;
 std::vector<poly_t> Yashe::gamma;
@@ -36,32 +37,54 @@ poly_t Yashe::mdelta;
 ZZ Yashe::WDMasking = ZZ(0);
 std::vector<poly_t> Yashe::P;
 
+// uint64_t get_cycles() {
+//   unsigned int hi, lo;
+//   asm (
+//     "cpuid\n\t"/*serialize*/
+//     "rdtsc\n\t"/*read the clock*/
+//     "mov %%edx, %0\n\t"
+//     "mov %%eax, %1\n\t"
+//     : "=r" (hi), "=r" (lo):: "%rax", "%rbx", "%rcx", "%rdx"
+//   );
+//   return ((uint64_t) lo) | (((uint64_t) hi) << 32);
+// }
+
+// #define BILLION  1000000000L
+// #define MILLION  1000000L
+
+// double compute_time_ms(struct timespec start,struct timespec stop){
+//   return (( stop.tv_sec - start.tv_sec )*BILLION + ( stop.tv_nsec - start.tv_nsec ))/MILLION;
+// }
+
 
 void Yashe::generate_keys(){
   log_debug("generate_keys:");
-  log_debug("nphi: " + nphi);
-  log_debug("nq: " + nq);
-  log_debug("t: " + t);
-  // log_debug("w: " << w);
+  std::cout << "t: " << t << std::endl;
+  /////////
+  // q/t //
+  /////////
+  q = (NTL::power2_ZZ(nq)-1);
+  get_words(&Yashe::Q,q);
+  get_words(&delta,q/to_ZZ(t));  
+  std::cout << "delta: " << q/to_ZZ(t) << std::endl;  
 
   // Compute f and fInv
   poly_t fInv;
   while ( 1 == 1 ){
-    poly_t fl;
     xkey.get_sample(&fl, nphi-1);
-    // log_notice("fl: " + poly_print(&fl));
+    log_debug("fl: " + poly_print(&fl));
 
     // f = fl*t + 1
     poly_integer_mul(&f,&fl,t);
     poly_integer_add(&f,&f,(cuyasheint_t)1);
-    poly_reduce(&f, nphi, nq); 
+    poly_reduce(&f, nphi, Yashe::Q, nq); 
 
   try{
       log_debug("will try to compute fInv");
-      // poly_invmod(&fInv,&f,nphi, nq); 
-      fInv = f;
+      poly_invmod(&fInv,&f,nphi, nq); 
+      // fInv = f;
       log_debug("fInv computed.");
-      // log_notice("fInv: " + poly_print(&fInv));
+      log_debug("fInv: " + poly_print(&fInv));
       break;
     } catch (exception& e)
     {
@@ -78,31 +101,28 @@ void Yashe::generate_keys(){
   // poly_set_coeff(&f,1,to_ZZ(0));
   // poly_set_coeff(&f,2,to_ZZ(8174));
   // poly_set_coeff(&f,3,to_ZZ(1));
-  // log_notice("f: " + poly_print(&f));
+  log_debug("f: " + poly_print(&f));
 
   // ff = f*f
   poly_mul(&ff,&f,&f);
-  poly_reduce(&ff,nphi,nq);
+  poly_reduce(&ff,nphi,Yashe::Q,nq);
     
   // tff = ff*t
   poly_integer_mul(&tff,&ff,t);
-  poly_reduce(&tff,nphi,nq);
+  poly_reduce(&tff,nphi,Yashe::Q,nq);
 
   // Sample
-  poly_t g;
   xkey.get_sample(&g, nphi-1);
-  // log_notice("g: " + poly_print(&g));
+  log_debug("g: " + poly_print(&g));
   // h = fInv*g*t
   poly_mul(&h, &fInv,&g);
   poly_integer_mul(&h, &h, t);
-  poly_reduce(&h, nphi, nq);
+  poly_reduce(&h, nphi, Yashe::Q,nq);
+  while(h.status != TRANSSTATE)
+    poly_elevate(&h);
 
-  // log_notice("h: " + poly_print(&h));
-  /////////
-  // q/t //
-  /////////
-  q = (NTL::power2_ZZ(nq)-1);
-  delta = q/t; 
+  log_debug("h: " + poly_print(&h));
+
 
   ///////////////////
   // Compute gamma //
@@ -114,16 +134,21 @@ void Yashe::generate_keys(){
   ///////////
 }
 poly_t Yashe::encrypt(poly_t m){
-  // log_notice("Encrypt");
+  log_notice("Encrypt");
 
-	// Sample
-  poly_t ps,e; 
+  // uint64_t start,end,total_start,total_end;
+  // total_start = get_cycles();
+
+  // Sample
+  // start = get_cycles();
   xerr.get_sample(&ps,nphi-1);
   xerr.get_sample(&e,nphi-1);
-  poly_reduce(&e,nphi,nq);
-  poly_reduce(&ps,nphi,nq);
-  // log_notice("ps: " + poly_print(&ps));
-  // log_notice("e: " + poly_print(&e));
+  // end = get_cycles();
+  // std::cout << "Encrypt sampling in " + std::to_string(end-start) + " cycles" << std::endl;
+  // poly_reduce(&e,nphi,nYashe::Q,nq);
+  // poly_reduce(&ps,nphi,nYashe::Q,nq);
+  log_debug("ps: " + poly_print(&ps));
+  log_debug("e: " + poly_print(&e));
   
   // poly_init(&ps);
   // poly_init(&e);
@@ -138,51 +163,92 @@ poly_t Yashe::encrypt(poly_t m){
   // poly_set_coeff(&e,3,to_ZZ(8190));
 
 	// 
+  // start = get_cycles();
 	poly_biginteger_mul(&mdelta,&m,delta);
 
-  // log_notice("m * delta: " + poly_print(&mdelta));
+  // end = get_cycles();
+  // std::cout << "poly_biginteger_mul in " + std::to_string(end-start) + " cycles" << std::endl;
+
+  log_debug("m * delta: " + poly_print(&mdelta));
 
 	// 
+  // start = get_cycles();
 	poly_add(&e,&e,&mdelta);
-  // log_notice("mdelta + e: " + poly_print(&e));
+
+  // end = get_cycles();
+  // std::cout << "poly_add in " + std::to_string(end-start) + " cycles" << std::endl;
+  log_debug("mdelta + e: " + poly_print(&e));
 	
   //
+  // start = get_cycles();
 	poly_mul(&ps,&ps,&h);
-  // log_notice("ps * h: " + poly_print(&ps));
+
+  // end = get_cycles();
+  // std::cout << "poly_mul in " + std::to_string(end-start) + " cycles" << std::endl;
+  log_debug("ps * h: " + poly_print(&ps));
 
 	//
 	poly_t c;
-	poly_init(&c);
+  // start = get_cycles();
+  poly_init(&c);
 	poly_add(&c,&e,&ps);
 
+  // end = get_cycles();
+  // std::cout << "poly_add in " + std::to_string(end-start) + " cycles" << std::endl;
+
   //
-  poly_reduce(&c, nphi, nq);
-  // log_notice("c: " + poly_print(&c));
-	return c;
+  // start = get_cycles();
+  poly_reduce(&c, nphi, Yashe::Q,nq);
+
+  // end = get_cycles();
+  // std::cout << "poly_reduce in " + std::to_string(end-start) + " cycles" << std::endl;
+  log_debug("c: " + poly_print(&c));
+  
+  // total_end = get_cycles(); 
+  // std::cout << std::endl << "Yashe::encrypt in " + std::to_string(total_end-total_start) + " cycles" << std::endl<< std::endl;
+  return c;
 }
 
 poly_t Yashe::decrypt(poly_t c){
-  // log_notice("Decrypt");
+  log_notice("Decrypt");
+  // uint64_t start,end,total_start,total_end;
+  // total_start = get_cycles();
 
-	poly_t m;
-	poly_init(&m);
+  poly_t m;
+  poly_init(&m);
+  std::cout << "f: " << poly_print(&f) << std::endl;
+  std::cout << "C: " << poly_print(&c) << std::endl;
 
-	poly_mul(&m, &f, &c);
-	poly_reduce(&m, nphi, nq);
-  // log_notice("[c*f]_q \\in R: " + poly_print(&m));
+  poly_mul(&m, &f, &c);
+  poly_reduce(&m, nphi, Yashe::Q,nq);
+  log_debug("[c*f]_q \\in R: " + poly_print(&m));
 
   poly_integer_mul(&m, &m, t);
-  // log_notice("[c*f]_q \\in R * t: " + poly_print(&m));
+  log_debug("[c*f]_q \\in R * t: " + poly_print(&m));
 
-	// division by q to the nearest
-	for(int i = 0; i <= poly_get_deg(&m); i++){
-    ZZ coeff = poly_get_coeff(&m,i);
-    ZZ diff = coeff % q;
-	  if(2*diff > q)
-	   poly_set_coeff(&m,i,coeff/q +1);
-	  else
-	    poly_set_coeff(&m,i,coeff/q);
-  }
+  // division by q to the nearest
+   
+  // start = get_cycles();
+  // for(int i = 0; i <= poly_get_deg(&m); i++){
+  //   ZZ coeff = poly_get_coeff(&m,i);
+  //   ZZ diff = coeff % q;
+  //   if(2*diff > q)
+  //    poly_set_coeff(&m,i,coeff/q +1);
+  //   else
+  //     poly_set_coeff(&m,i,coeff/q);
+  // }
+  poly_demote(&m); // CRT
+  poly_icrt(&m);
+  callCiphertextMulAux(m.d_bn_coefs, Yashe::Q, nq, CUDAFunctions::N, NULL);
+  callCRT(m.d_bn_coefs,
+          CUDAFunctions::N,
+          m.d_coefs,
+          CUDAFunctions::N,
+          CRTPrimes.size(),
+          0x0
+    );
+  // end = get_cycles();
+  // std::cout << "decrypt last step in " + std::to_string(end-start) + " cycles" << std::endl;
 
   return m;
 }

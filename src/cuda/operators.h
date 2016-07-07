@@ -29,20 +29,21 @@
 #include "../settings.h"
 #include "../cuda/cuda_bn.h"
 #include "../aritmetic/polynomial.h"
-// #ifdef CUFFTMUL
-// #endif
 
 NTL_CLIENT
 
-// __constant__ int PrimesL;
 #define MAX_PRIMES_ON_C_MEMORY 4096
-// cuyasheint_t *CRTPrimesGlobal;
 typedef double2 Complex;
-extern __constant__ cuyasheint_t CRTPrimesConstant[PRIMES_BUCKET_SIZE];
+extern __constant__ cuyasheint_t CRTPrimesConstant[COPRIMES_BUCKET_SIZE];
 
 __host__ bool is_power_of(uint64_t a, uint64_t b);
 class CUDAFunctions{
   public:
+    ////////////////////////
+    // Mersenne operator  //
+    ////////////////////////
+
+
   	static int N;
     static int std_bn_t_alloc;
     static int transform;
@@ -173,6 +174,8 @@ class CUDAFunctions{
     static void callNTT(const int N, const int NPolis,int RADIX, cuyasheint_t* dataI, cuyasheint_t* dataO,const int type);
     static void init(int N);
     static void write_crt_primes();
+    
+    static void callPolynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q, const int nq);
   private:
 };
 __device__ __host__ inline uint64_t s_rem (uint64_t a);

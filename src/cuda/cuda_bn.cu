@@ -17,15 +17,15 @@
  */
 #include "cuda_bn.h"
 
-__constant__ cuyasheint_t CRTPrimesConstant[PRIMES_BUCKET_SIZE];
+__constant__ cuyasheint_t CRTPrimesConstant[COPRIMES_BUCKET_SIZE];
 
 __constant__ cuyasheint_t M[STD_BNT_WORDS_ALLOC];
 __constant__ int M_used;
 __constant__ cuyasheint_t u[STD_BNT_WORDS_ALLOC];
 __constant__ int u_used;
-__constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*PRIMES_BUCKET_SIZE];
-__constant__ int Mpis_used[PRIMES_BUCKET_SIZE];
-__constant__ cuyasheint_t invMpis[PRIMES_BUCKET_SIZE];
+__constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*COPRIMES_BUCKET_SIZE];
+__constant__ int Mpis_used[COPRIMES_BUCKET_SIZE];
+__constant__ cuyasheint_t invMpis[COPRIMES_BUCKET_SIZE];
 
 ////////////////////////
 // Auxiliar functions //
@@ -124,6 +124,18 @@ __device__ unsigned isEqual(int x, int y) {
 }
 
 /**
+ * Returns the highest bit set on a digit.
+ *
+ * About __builtin_clzll: https://gcc.gnu.org/onlinedocs/gcc/OtherBuiltins.html
+ * @param  a [description]
+ * @return   [description]
+ */
+__device__ int util_bits_dig(cuyasheint_t a) {
+       return WORD - __clz(a);
+}
+
+
+/**
  * [max_d description]
  * @param  a [description]
  * @param  b [description]
@@ -141,18 +153,6 @@ __host__ __device__ void dv_zero(cuyasheint_t *a, int digits) {
 
 	return;
 }
-
-/**
- * Returns the highest bit set on a digit.
- *
- * About __builtin_clzll: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
- * @param  a [description]
- * @return   [description]
- */
-__device__ int util_bits_dig(cuyasheint_t a) {
-	return WORD - __clz(a);
-}
-
 /**
  * Set a big number struct to zero
  * @param a operand
@@ -187,6 +187,12 @@ __host__ __device__ bool bn_is_zero(const bn_t* a) {
 		}
 		return false;
 	#endif
+}
+
+__host__ __device__ void bn_adjust_used(bn_t *a){
+	for(int i = a->used-1; i >= 0; i--)
+		if(a->dp[i] == 0)
+			a->used--;
 }
 
 __global__ void bn_get_deg(int *r, bn_t *coefs, int N){
@@ -350,6 +356,7 @@ __host__ __device__ void bn_bitwise_and(bn_t *a, bn_t *b){
 	// Compute a = a & b
 	for(int i = 0; i < min_d(a->used,b->used);i++)
 		a->dp[i] = (a->dp[i] & b->dp[i]);
+	a->used = min_d(a->used,b->used);
 }
 
 __host__ __device__ void bn_truncate(bn_t *a, int bits){
@@ -362,11 +369,34 @@ __host__ __device__ void bn_truncate(bn_t *a, int bits){
 	a->used = index+1;
 }
 
+
 /**
  * Shifts a digit vector to the right by some digits. 
  * Computes c = a >> (digits * DIGIT).
  *
  * 64 bits version
+ * @param c      [description]
+ * @param a      [description]
+ * @param size   [description]
+ * @param digits [description]
+ */
+__host__ __device__ void bn_rshd_low(uint64_t *c, const uint64_t *a, int size, int digits) {
+	const uint64_t *top;
+	uint64_t *bot;
+	int i;
+
+	top = a + digits;
+	bot = c;
+
+	for (i = 0; i < size - digits; i++, top++, bot++) {
+		*bot = *top;
+	}
+}
+
+/**
+ * Shifts a digit vector to the right by some digits. 
+ * Computes c = a >> (digits * DIGIT).
+ *
  * @param c      [description]
  * @param a      [description]
  * @param size   [description]
@@ -401,6 +431,8 @@ __host__ __device__ void bn_rshd_low(T *c, const T *a, int size, int digits) {
 __host__ __device__ uint64_t bn_rshb_low(uint64_t *c, const uint64_t *a, int size, int bits) {
 	int i;
 	uint64_t r, carry, shift, mask;
+	
+	assert(bits < 64);
 
 	c += size - 1;
 	a += size - 1;
@@ -786,7 +818,7 @@ __device__ void bn_divn_low( 	uint32_t *c,
 // Add
 
 /**
- * Computes a+b
+ * Computes a+b. It is expected that a.size >= b.size
  * @param  c    output: result
  * @param  a    input: many-words first operand
  * @param  b    input: many-words second operand
@@ -1439,6 +1471,7 @@ __global__ void cuICRT(	bn_t *poly,
  	 	/**
  	 	 * At this point a thread i finished the computation of coefficient i
  	 	 */
+  		bn_adjust_used(&coef);
  		poly[cid] = coef;
 		bn_mod_barrt(	poly,
 						poly,

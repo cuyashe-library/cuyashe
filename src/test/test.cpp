@@ -13,16 +13,20 @@ struct AritmeticSuite
 {
 	Distribution dist;
     ZZ q;
+    bn_t Q;
     poly_t phi;
+    ZZ_pX NTL_Phi;
 
 	// Test aritmetic functions
     AritmeticSuite(){
         // Log
-        log_init("test.log");
+        log_init("aritmetic_test.log");
 
         // Init
         OP_DEGREE = 32;
-        q = to_ZZ("17");
+        int mersenne_n = 127;
+        q = NTL::power2_ZZ(mersenne_n) - 1;
+        get_words(&Q,q);
         gen_crt_primes(q,OP_DEGREE);
         CUDAFunctions::init(OP_DEGREE);
         poly_init(&phi);
@@ -32,7 +36,6 @@ struct AritmeticSuite
 
         // Init NTL
         ZZ_p::init(q);
-        ZZ_pX NTL_Phi;
         for(int i = 0; i <= poly_get_deg(&phi);i++)
           NTL::SetCoeff(NTL_Phi,i,conv<ZZ_p>(poly_get_coeff(&phi,i)));
 
@@ -60,13 +63,12 @@ struct YasheSuite
     // Test Yashe functions
     YasheSuite(){
         // Log
-        log_init("test.log");
+        log_init("yashe_test.log");
 
         // Init
         OP_DEGREE = 4;
         // OP_DEGREE = 32;
-        int mersenne_n = 13;
-        // int mersenne_n = 127;
+        int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
         t = 17;
         // t = 1024;
@@ -125,24 +127,28 @@ BOOST_AUTO_TEST_CASE(set_coeff)
 
 BOOST_AUTO_TEST_CASE(crt)
 {
-    poly_t a;
-    poly_init(&a);
-    BOOST_TEST_CHECKPOINT("Setting up polynomial");
-    for(int i = 0; i < OP_DEGREE;i++)
-        poly_set_coeff(&a,i,to_ZZ(i*i));
+    for(int ntest = 0; ntest < NTESTS; ntest++){
+        poly_t a;
+        poly_init(&a);
 
-    // Elevate to TRANSTATE
-    BOOST_TEST_CHECKPOINT("Elevating");
-    while(a.status != TRANSSTATE)
-        poly_elevate(&a);
-    
-    // Demote back to HOST
-    BOOST_TEST_CHECKPOINT("Demoting");
-    while(a.status != HOSTSTATE)
-        poly_demote(&a);
 
-    for(int i = 0; i < OP_DEGREE;i++)
-        BOOST_CHECK_EQUAL(poly_get_coeff(&a,i) , to_ZZ(i*i));
+        BOOST_TEST_CHECKPOINT("Setting up polynomial");
+        for(int i = 0; i < OP_DEGREE;i++)
+            poly_set_coeff(&a,i,to_ZZ(i*i));
+
+        // Elevate to TRANSTATE
+        BOOST_TEST_CHECKPOINT("Elevating");
+        while(a.status != TRANSSTATE)
+            poly_elevate(&a);
+        
+        // Demote back to HOST
+        BOOST_TEST_CHECKPOINT("Demoting");
+        while(a.status != HOSTSTATE)
+            poly_demote(&a);
+
+        for(int i = 0; i < OP_DEGREE;i++)
+            BOOST_CHECK_EQUAL(poly_get_coeff(&a,i) , to_ZZ(i*i));
+    }
 }
 
 BOOST_AUTO_TEST_CASE(add)
@@ -197,7 +203,8 @@ BOOST_AUTO_TEST_CASE(mul)
     poly_t c;
     poly_init(&c);
     poly_mul(&c,&a,&b);
-    ZZ_pEX ntl_c = ntl_a*ntl_b;
+    poly_reduce(&c,OP_DEGREE,Q,NTL::NumBits(q));
+    ZZ_pEX ntl_c = ntl_a*ntl_b % conv<ZZ_pEX>(NTL_Phi);
 
     // Verify
     for(int i = 0; i < 2*OP_DEGREE; i++){
@@ -240,6 +247,7 @@ BOOST_AUTO_TEST_CASE(add_mul)
     poly_mul(&c,&c,&b);
     ntl_c = ntl_c * ntl_b;
 
+    BOOST_CHECK_EQUAL(NTL::deg(ntl_c),poly_get_deg(&c));
     // Verify
     for(int i = 0; i < 2*OP_DEGREE; i++){
         ZZ ntl_value;

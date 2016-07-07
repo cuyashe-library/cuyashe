@@ -15,13 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "../settings.h"
-#include "../distribution/distribution.h"
+#include "cuda_distribution.h"
 
-__global__ void setup_kernel ( curandState * states, unsigned long seed )
-{
+__global__ void setup_kernel ( curandState * states, unsigned long seed ){
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    curand_init ( seed, tid, 0, &states[tid] );
+    curand_init ( seed+tid*4, tid, 0, &states[tid] );
 }
 
 __host__ void Distribution::call_setup_kernel(){
@@ -35,7 +33,7 @@ __host__ void Distribution::call_setup_kernel(){
 }
 
 
-__global__ void generate_narrow_random_numbers(	cuyasheint_t *coefs,
+__global__ void generate_narrow_random_numbers(	bn_t *coefs,
 												curandState *states,
 												int N,
 												int spacing,
@@ -44,20 +42,23 @@ __global__ void generate_narrow_random_numbers(	cuyasheint_t *coefs,
 
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (tid <= N){	
+    if (tid < N){	
     	int value = llrintf(curand_uniform(&states[tid])); // [-1, 0 , 1];
-    	value -= llrintf(curand_uniform(&states[tid]));
+    	// value -= llrintf(curand_uniform(&states[tid]));
     	
-    	if(value == 0 && tid == N)
-    		value = 1;
+    	// if(value == 0 && tid == N)
+    	// 	value = 1;
 
-    	for(int i = 0; i < NPrimes; i++)
-    		coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
+    	// for(int i = 0; i < NPrimes; i++)
+    		// coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
+    	coefs[tid].dp[0] = value;
+    	coefs[tid].used = 1;
+    	bn_zero_non_used(&coefs[tid]);
     }
         
 }
 
-__host__  void Distribution::callCuGetUniformSample(	cuyasheint_t *coefs,
+__host__  void Distribution::callCuGetUniformSample(	bn_t *coefs,
 														int N,
 														int NPrimes,
 														int mod ){
@@ -82,7 +83,7 @@ __host__  void Distribution::callCuGetUniformSample(	cuyasheint_t *coefs,
 	assert(cudaGetLastError() == cudaSuccess);
 }
 
-__global__ void generate_normal_random_numbers(	cuyasheint_t *coefs,
+__global__ void generate_normal_random_numbers(	bn_t *coefs,
 												curandState *states,
 												int N,
 												int spacing,
@@ -92,16 +93,19 @@ __global__ void generate_normal_random_numbers(	cuyasheint_t *coefs,
 
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (tid <= N){	
-    	int value = llrintf(curand_log_normal(&states[tid],mean, stddev)); 
-    	for(int i = 0; i < NPrimes; i++){
-    		coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
-    	}
+    if (tid < N){	
+    	int value = curand_normal (&states[tid])*stddev + mean; 
+    	// for(int i = 0; i < NPrimes; i++){
+    		// coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
+    	// }
+    	coefs[tid].dp[0] = value;
+    	coefs[tid].used = 1;
+    	bn_zero_non_used(&coefs[tid]);
     }
         
 }
 
-__host__ void Distribution::callCuGetNormalSample(	cuyasheint_t *coefs,
+__host__ void Distribution::callCuGetNormalSample(	bn_t *coefs,
 													int N,
 													float mean,
 													float stddev,

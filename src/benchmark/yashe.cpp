@@ -20,7 +20,6 @@
 #include <iomanip>
 #include <cuda_runtime_api.h>
 #include <NTL/ZZ.h>
-#include <time.h>
 #include <unistd.h>
 #include <iomanip>
 #include "../settings.h"
@@ -29,13 +28,7 @@
 #include "../logging/logging.h"
 #include "../distribution/distribution.h"
 
-#define BILLION  1000000000L
-#define MILLION  1000000L
-#define N 2
-
-double compute_time_ms(struct timespec start,struct timespec stop){
-  return (( stop.tv_sec - start.tv_sec )*BILLION + ( stop.tv_nsec - start.tv_nsec ))/MILLION;
-}
+#define N 100
 
  double runEncrypt(Yashe cipher,int d){
   struct timespec start, stop;
@@ -46,6 +39,8 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   poly_t a,b;
   poly_init(&a);
   dist.generate_sample(&a, 50, d);
+  while(a.status != TRANSSTATE)
+    poly_elevate(&a);
 
   // Exec
   clock_gettime( CLOCK_REALTIME, &start);
@@ -84,6 +79,7 @@ double compute_time_ms(struct timespec start,struct timespec stop){
 int main(int argc, char* argv[]){
      // Log
     log_init("benchmark.log");
+    // log_init();
     double diff;
 
     // Output precision
@@ -98,7 +94,8 @@ int main(int argc, char* argv[]){
     poly_t phi;
     ZZ_pX NTL_Phi;
 
-    for(int d = 512; d < 8192; d*=2){
+    // for(int d = 512; d <= 8192; d*=2){
+    for(int d = 4096; d <= 4096; d*=2){
     	gen_crt_primes(q,d);
 	    CUDAFunctions::init(d);
     	poly_init(&phi);

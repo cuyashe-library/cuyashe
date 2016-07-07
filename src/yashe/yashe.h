@@ -21,19 +21,25 @@
 #include <NTL/ZZ.h>
 #include "../aritmetic/polynomial.h"
 #include "../distribution/distribution.h"
+#include "../cuda/cuda_ciphertext.h"
 
 class Yashe{
   private:
     Distribution xkey;
     Distribution xerr;
+    poly_t ps;
+    poly_t e;
+    poly_t fl;
+    poly_t g;
 
   public:
     static int nphi; // R_q degree
     static int nq; //
     static ZZ q; // 
+    static bn_t Q; // 
     static bn_t qDiv2; // q/2
     static cuyasheint_t t; //
-    static ZZ delta; // q/t
+    static bn_t delta; // q/t
     static ZZ w; // 
     static std::vector<poly_t> gamma; //
     static poly_t h; // 
@@ -45,6 +51,7 @@ class Yashe{
     static int lwq; // log_w q
     static ZZ WDMasking;
     static std::vector<poly_t> P;
+
     Yashe(){
       const int sigma_err = 8;
       const float gaussian_std_deviation = sigma_err*0.4;
@@ -52,6 +59,16 @@ class Yashe{
       xkey = Distribution(NARROW);
       xerr = Distribution(DISCRETE_GAUSSIAN,gaussian_std_deviation, gaussian_bound);
 
+      /**
+       * Initialization of samples
+       *
+       * This reduces the time need to sampling but turns this code non-thread-safe
+       */
+      poly_init(&ps); 
+      poly_init(&e);
+      poly_init(&fl);
+      poly_init(&g);
+      //
       poly_init(&h); 
       poly_init(&f); 
       poly_init(&ff);

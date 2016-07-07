@@ -89,28 +89,100 @@ void callCuWordecomp(	dim3 gridDim,
 	assert(result == cudaSuccess);
 }
 
+
+__host__ __device__ int bn_count_bits( bn_t *a){
+	if(a->used == 0)
+		return 0;
+
+	int count = 0;
+	cuyasheint_t last_word = a->dp[a->used-1];
+	while(last_word > 0){
+		count++;
+		last_word = (last_word>>1);
+	}
+
+	return count;		
+}
+
 /**
  * Computes x/q, where x is a bit integer and q is a mersenne prime
  * @param  x      [description]
  * @param  q_bits [description]
  * @return        [description]
  */
-__device__ __inline__ void mersenneDiv(	bn_t *x,
-							int q_bits
-						){
+__device__ void mersenneDiv(	bn_t *x,
+								bn_t *q,
+								int q_bits){
+	if(x->used == 0)
+	return;
 
 
-		// q_bits right shift
-		uint64_t carry = bn_rshb_low(x->dp,
-									x->dp,
-									x->used,
-									q_bits);
-		if(carry)
-			bn_rshb_low(x->dp,
-						x->dp,
-						x->used,
-						q_bits);
-		x->dp -= (q_bits / WORD) + (q_bits % WORD != 0);
+	bn_adjust_used(x);
+	
+	int check = (x->used-1)*WORD;
+	cuyasheint_t last_word = x->dp[x->used-1];
+	while(last_word > 0){
+		check++;
+		last_word = (last_word>>1);
+	}
+
+	assert(check < 2*q_bits);
+
+	///////////////
+	// a%q //
+	///////////////
+	check = bn_cmp_abs(x, q);
+	if(check == CMP_LT)
+		return;
+	else if(check == CMP_EQ){
+		x->used = 0;
+		return;
+	}
+
+	int carry;
+	// > q
+	bn_t x_copy;
+	cuyasheint_t dp[STD_BNT_WORDS_ALLOC];
+	x_copy.alloc = x->alloc;
+	x_copy.used = x->used;
+	x_copy.sign = x->sign;
+	x_copy.dp = dp;
+	bn_copy(&x_copy, x);
+
+	// x = x>>s
+	bn_rshd_low(  x->dp,
+				              x->dp,
+				              x->used,
+				              q_bits/WORD ); 
+	x->used -= (q_bits/WORD>0)?q_bits/WORD:0;
+	bn_rshb_low(  x->dp,
+				              x->dp,
+				              x->used,
+				              q_bits%WORD );
+	// x->dp[0] += carry;
+	bn_adjust_used(x);
+	// x_copy = x&q
+	bn_bitwise_and(&x_copy, q);
+	x_copy.used = q->used;
+	bn_adjust_used(&x_copy);
+
+	// x = (x>>s) + (x&q)
+	int nwords = max_d(x->used,x_copy.used);
+    carry = bn_addn_low(x->dp, x->dp, x_copy.dp,nwords);
+    x->used = nwords;
+
+    /* Equivalent to "If has a carry, add as last word" */
+    x->dp[x->used] = carry;
+    x->used += (carry > 0);
+
+    // If x still bigger than q, x = x - q
+	check = bn_cmp_abs(x, q);
+	if(check == CMP_LT)
+		return;
+	else{
+		bn_subn_low(x->dp,x->dp, q->dp, x->used);
+		return;
+	}
 }
 
 /**
@@ -124,6 +196,7 @@ __device__ __inline__ void mersenneDiv(	bn_t *x,
  */
 __global__ void cuCiphertextMulAux(	 
 									bn_t *g, 
+									bn_t q,
 									int q_bits,
 									bn_t qDiv2,
 									int N){
@@ -135,7 +208,7 @@ __global__ void cuCiphertextMulAux(
 	if(tid < N){
 		// Divides g by q
 		bn_t *coef = &g[tid];
-		mersenneDiv(coef,q_bits);
+		mersenneDiv(coef,&q,q_bits);
 
 		// Checks if g%q >= q/2.
 		if(bn_cmp_abs(coef,&qDiv2) != CMP_LT){
@@ -153,6 +226,7 @@ __global__ void cuCiphertextMulAux(
  * @param N      [description]
  */
 __global__ void cuMersenneDiv( bn_t *g, 
+	                           bn_t q,
 								int q_bits,
 								int N){
 	/**
@@ -164,7 +238,7 @@ __global__ void cuMersenneDiv( bn_t *g,
 
 	if(tid < N){
 		bn_t *coef = &g[tid];
-		mersenneDiv(coef,q_bits);
+		mersenneDiv(coef,&q,q_bits);
 	}
 }
 
@@ -176,23 +250,23 @@ __global__ void cuMersenneDiv( bn_t *g,
  * @param N      [description]
  * @param stream [description]
  */
-__host__ void callCiphertextMulAux(bn_t *g, ZZ q,int N, cudaStream_t stream){
+__host__ void callCiphertextMulAux(bn_t *g, bn_t q, int nq,int N, cudaStream_t stream){
 	const int size = N;
 	const int ADDGRIDXDIM = (size%128 == 0? size/128 : size/128 + 1);
 	const dim3 gridDim(ADDGRIDXDIM);
 	const dim3 blockDim(128);
 
-	cuCiphertextMulAux<<<gridDim, blockDim, 0, stream>>>(g, NTL::NumBits(q),Yashe::qDiv2, N);
+	cuCiphertextMulAux<<<gridDim, blockDim, 0, stream>>>(g, q, nq,Yashe::qDiv2, N);
 	assert(cudaGetLastError() == cudaSuccess);
 }
 
-__host__ void callMersenneDiv(bn_t *g, ZZ q,int N, cudaStream_t stream){
+__host__ void callMersenneDiv(bn_t *g, bn_t q,int nq, int N, cudaStream_t stream){
 
 	const int size = N;
 	const int ADDGRIDXDIM = (size%128 == 0? size/128 : size/128 + 1);
 	const dim3 gridDim(ADDGRIDXDIM);
 	const dim3 blockDim(128);
 
-	cuMersenneDiv<<<gridDim, blockDim,0, stream>>>(g,NTL::NumBits(q),N);
+	cuMersenneDiv<<<gridDim, blockDim,0, stream>>>(g, q, nq,N);
 	assert(cudaGetLastError() == cudaSuccess);
 }

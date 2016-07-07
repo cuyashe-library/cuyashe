@@ -25,31 +25,34 @@
  * @param degree [description]
  */
 void Distribution::generate_sample(poly_t *p,int mod,int degree){
-  // for(int i = 0; i < degree; i ++){
-  //   p->coefs[i] = NTL::RandomBnd(2);
-  //   p->coefs[i] -= NTL::RandomBnd(2);
-  //   p->coefs[i] %= (NTL::power2_ZZ(Yashe::nq)-1);
-  // }
-  // if(p->coefs[0] == 0);
-  //   p->coefs[0] = to_ZZ(1);
-  // if(p->coefs[degree] == 0);
-  //   p->coefs[degree] = to_ZZ(1);
-  // p->status = HOSTSTATE;
-  callCuGetUniformSample(  p->d_coefs, 
+  callCuGetUniformSample(  p->d_bn_coefs, 
                            degree,
                            CRTPrimes.size(), 
                            mod);
+  callCRT(p->d_bn_coefs,
+      CUDAFunctions::N,
+      p->d_coefs,
+      CUDAFunctions::N,
+      CRTPrimes.size(),
+      0x0
+  );
   p->status = CRTSTATE;
 }
 
 void Distribution::get_sample(poly_t *p, int degree){
-  poly_init(p);
-
+  
   int mod;
   switch(this->kind){
     case DISCRETE_GAUSSIAN:
       mod = 7;
-      callCuGetNormalSample(p->d_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
+      callCuGetNormalSample(p->d_bn_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
+      callCRT(p->d_bn_coefs,
+        CUDAFunctions::N,
+        p->d_coefs,
+        CUDAFunctions::N,
+        CRTPrimes.size(),
+        0x0
+    );
       p->status = CRTSTATE;
       return;
     break;
