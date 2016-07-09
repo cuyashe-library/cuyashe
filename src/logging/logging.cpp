@@ -3,13 +3,25 @@
 void log_init(){
 	// log_init(LL_DEBUG);
 	log_notice("");
+	log_debug("");
+	log_warn("");
+	log_error("");
 	log_notice("...Starting...");
+	log_debug("...Starting...");
+	log_warn("...Starting...");
+	log_error("...Starting...");
 }
 
 void log_init(std::string s){
 	log_init(LL_DEBUG, s.c_str(), "./log/");
 	log_notice("");
+	log_debug("");
+	log_warn("");
+	log_error("");
 	log_notice("...Starting...");
+	log_debug("...Starting...");
+	log_warn("...Starting...");
+	log_error("...Starting...");
 }
 
 void log_notice(std::string s){

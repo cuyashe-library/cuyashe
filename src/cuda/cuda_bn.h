@@ -60,7 +60,8 @@ __host__ __device__ void bn_lshd_low(cuyasheint_t *c, const cuyasheint_t *a, int
 __host__ __device__  cuyasheint_t bn_lshb_low(cuyasheint_t *c, const cuyasheint_t *a, int size, int bits);
 __host__ __device__ uint64_t bn_addn_low(uint64_t *c, uint64_t *a, uint64_t *b, const int size );
 __host__ __device__ uint32_t bn_addn_low_32(uint32_t *c, uint32_t *a, uint32_t *b, const int size );
-__host__ __device__ uint64_t bn_subn_low(	uint64_t * c, const uint64_t * a, const uint64_t * b,  int size);
+__host__ __device__ uint64_t bn_subn_low(uint64_t * c, const uint64_t * a,const uint64_t * b, int size) ;
+// __host__ __device__ uint64_t bn_subn_low(	uint64_t * c, const uint64_t * a, const uint64_t * b,  int size);
 __host__ __device__ uint32_t bn_subn_low_32(	uint32_t * c, const uint32_t * a, const uint32_t * b,  int size);
 __device__ void bn_muln_low(cuyasheint_t *c,
 							const cuyasheint_t *a,
@@ -75,8 +76,7 @@ __device__ void bn_muld_low(cuyasheint_t * c,
 									int l, 
 									int h);
 __device__ void bn_mod_barrt(	bn_t *C, 
-								const bn_t *A,
-								const int NCoefs,
+								const bn_t A,
 								const cuyasheint_t * m, 
 								int sm, 
 								const cuyasheint_t * u,

@@ -16,6 +16,7 @@ struct AritmeticSuite
     bn_t Q;
     poly_t phi;
     ZZ_pX NTL_Phi;
+    bn_t UQ;
 
 	// Test aritmetic functions
     AritmeticSuite(){
@@ -27,6 +28,7 @@ struct AritmeticSuite
         int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
         get_words(&Q,q);
+        UQ = get_reciprocal(Q);
         gen_crt_primes(q,OP_DEGREE);
         CUDAFunctions::init(OP_DEGREE);
         poly_init(&phi);
@@ -70,8 +72,8 @@ struct YasheSuite
         // OP_DEGREE = 32;
         int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
-        t = 17;
-        // t = 1024;
+        // t = 17;
+        t = 1024;
         ZZ w = NTL::power2_ZZ(32);
 
         gen_crt_primes(q,OP_DEGREE);
@@ -203,7 +205,7 @@ BOOST_AUTO_TEST_CASE(mul)
     poly_t c;
     poly_init(&c);
     poly_mul(&c,&a,&b);
-    poly_reduce(&c,OP_DEGREE,Q,NTL::NumBits(q));
+    poly_reduce(&c,OP_DEGREE,Q,NTL::NumBits(q),UQ);
     ZZ_pEX ntl_c = ntl_a*ntl_b % conv<ZZ_pEX>(NTL_Phi);
 
     // Verify

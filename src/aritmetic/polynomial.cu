@@ -247,7 +247,7 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b){
   poly_biginteger_mul(c,a,B);
 }
 
-void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
+void poly_reduce(poly_t *a, int nphi, bn_t q, int nq,const bn_t uq){
 	const unsigned int half = nphi-1;     
 	
 	///////////
@@ -281,7 +281,7 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
 	      NULL
     );
 
-	CUDAFunctions::callPolynomialReductionCoefs(a->d_bn_coefs, half, CUDAFunctions::N, q, nq);
+	CUDAFunctions::callPolynomialReductionCoefs(a->d_bn_coefs, half, CUDAFunctions::N, q, nq, uq);
 	callMersenneDiv(a->d_bn_coefs , q, nq, CUDAFunctions::N, NULL);
     
     callCRT(a->d_bn_coefs,
@@ -696,31 +696,11 @@ bn_t get_reciprocal(ZZ q){
     }
 bn_t get_reciprocal(bn_t q){
 	/**
-	 * The reciprocal is computed in the first time this function() is called
-	 * After that, the result is reused
-	 */
-	 ZZ q_ZZ = get_ZZ(&q);
-      std::pair<cuyasheint_t*,int> pair = reciprocals[q_ZZ];
-      cuyasheint_t *reciprocal = std::get<0>(pair);
-      int su = std::get<1>(pair);
-
-      if( reciprocal != NULL){
-        /** 
-         * Not computed yet
-         */
-        compute_reciprocal(q_ZZ);
-        pair = reciprocals[q_ZZ];
-        reciprocal = std::get<0>(pair);
-        su = std::get<1>(pair);
-      }
-
-      bn_t result;
-      result.used = su;
-      result.alloc = su;
-      result.sign = BN_POS;
-      result.dp = reciprocal;
-
-      return result;
+	 * The reciprocal is computed on the first time this function() is called.
+	 * After that, the result is reused.
+ 	*/
+	ZZ q_ZZ = get_ZZ(&q);
+	return get_reciprocal(q_ZZ);
     }
 void compute_reciprocal(ZZ q){
       ZZ u_ZZ;

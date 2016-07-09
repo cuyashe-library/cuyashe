@@ -32,7 +32,7 @@ typedef struct bn_st{
 
 
 #ifdef CUFFTMUL_TRANSFORM
-#define CRTPRIMESIZE 16 
+#define CRTPRIMESIZE 10 
 #define COPRIMES_BUCKET_SIZE 200                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     //
 extern const uint32_t COPRIMES_BUCKET[];
 #else

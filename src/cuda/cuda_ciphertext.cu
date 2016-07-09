@@ -161,10 +161,12 @@ __device__ void mersenneDiv(	bn_t *x,
 				              q_bits%WORD );
 	// x->dp[0] += carry;
 	bn_adjust_used(x);
+	bn_zero_non_used(x);
 	// x_copy = x&q
 	bn_bitwise_and(&x_copy, q);
 	x_copy.used = q->used;
 	bn_adjust_used(&x_copy);
+	bn_zero_non_used(&x_copy);
 
 	// x = (x>>s) + (x&q)
 	int nwords = max_d(x->used,x_copy.used);

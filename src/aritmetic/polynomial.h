@@ -142,7 +142,7 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b);
  * @param nphi x^{nphi} - 1
  * @param nq   2^{nq} - 1
  */
-void poly_reduce(poly_t *f, int nphi, bn_t Q, int nq);
+void poly_reduce(poly_t *f, int nphi, bn_t Q, int nq,const bn_t uq);
 
 /**
  * computes the polynomial inverse in R_q

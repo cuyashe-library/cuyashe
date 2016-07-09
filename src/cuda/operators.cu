@@ -71,7 +71,7 @@ __host__ __device__ inline uint64_t s_sub(uint64_t a,uint64_t b);
 static __device__ inline Complex ComplexMul(Complex a, Complex b);
 static __device__ inline Complex ComplexAdd(Complex a, Complex b);
 static __device__ inline Complex ComplexSub(Complex a, Complex b);
-extern __device__ void mersenneDiv(  bn_t *x, int q_bits);
+extern __device__ void mersenneDiv(  bn_t *x, bn_t *q, int q_bits);
 
 ///////////////////////////////////////
 /// ADD
@@ -761,12 +761,20 @@ __host__ void CUDAFunctions::callPolynomialcuFFTOPInteger(
   const dim3 gridDim(ADDGRIDXDIM);
   const dim3 blockDim(ADDBLOCKXDIM);
 
+  // This function must be refactored. It works for multiplications but not 
+  // for small additions. In that case the input integer must be converted to a 
+  // 0-degree polynomial.
+  if(opcode == ADD){
+    log_error("Do not use polynomialcuFFTOPInteger function for additions.");
+    exit(1);
+  }
+
   polynomialcuFFTOPInteger<<< gridDim,blockDim, 0, stream>>> ( opcode,
-                                                          a,
-                                                          integer,
-                                                          b,
-                                                          N,
-                                                          NPolis);
+                                                                a,
+                                                                integer,
+                                                                b,
+                                                                N,
+                                                                NPolis);
   assert(cudaGetLastError() == cudaSuccess);
 
 }
@@ -1236,43 +1244,50 @@ __global__ void cuICRTFix(bn_t *a, const int N, bn_t q,bn_t u_q,bn_t q2){
       carry = bn_subn_low(coef.dp,q.dp,coef.dp,max_d(coef.used,q.used));
       coef.used = get_used_index(coef.dp,STD_BNT_WORDS_ALLOC)+1;
     }  
-    a[tid] = coef;
     // result = result % q
-    bn_mod_barrt( a,
-                  a,
-                  N,
+    bn_mod_barrt( &coef,
+                  coef,
                   q.dp,
                   q.used,
                   u_q.dp,
                   u_q.used); 
+    a[tid] = coef;
     bn_zero_non_used(&a[tid]);
   }
 }
 
-__global__ void polynomialReductionCRT(cuyasheint_t *a,const int half,const int N,const int NPolis){     
-  // This kernel must have (N-half)*Npolis threads
+// __global__ void polynomialReductionCRT( cuyasheint_t *a,
+//                                         const int half,
+//                                         const int N,
+//                                         const int NPolis){     
+//   // This kernel must have (N-half)*Npolis threads
 
-  const int tid = threadIdx.x + blockIdx.x*blockDim.x;
-  const int rid = tid / (N-half); 
-  const int cid = tid % (N-half);
+//   const int tid = threadIdx.x + blockIdx.x*blockDim.x;
+//   const int rid = tid / (N-half); 
+//   const int cid = tid % (N-half);
 
-  if( (cid+half+1 < N) && (rid*N + cid + half + 1 < N*NPolis)){
-    // assert(a[rid*N + cid] < CRTPrimesConstant[rid]);
-    // assert(a[rid*N + cid + half + 1] < CRTPrimesConstant[rid]);
-    a[rid*N + cid] %= CRTPrimesConstant[rid];
-    a[rid*N + cid + half + 1] %= CRTPrimesConstant[rid];
+//   if( (cid+half+1 < N) && (rid*N + cid + half + 1 < N*NPolis)){
+//     // assert(a[rid*N + cid] < CRTPrimesConstant[rid]);
+//     // assert(a[rid*N + cid + half + 1] < CRTPrimesConstant[rid]);
+//     a[rid*N + cid] %= CRTPrimesConstant[rid];
+//     a[rid*N + cid + half + 1] %= CRTPrimesConstant[rid];
 
-    // bool is_neg = (a[rid*N + cid] < a[rid*N + cid + half + 1]);
-    a[rid*N + cid] -= a[rid*N + cid + half + 1];
-    // a[rid*N + cid] += is_neg*CRTPrimesConstant[rid]*CRTPrimesConstant[rid];
-    __syncthreads();
-    a[rid*N + cid + half + 1] = 0;
-    a[rid*N + cid] %= CRTPrimesConstant[rid];
-  }
+//     // bool is_neg = (a[rid*N + cid] < a[rid*N + cid + half + 1]);
+//     a[rid*N + cid] -= a[rid*N + cid + half + 1];
+//     // a[rid*N + cid] += is_neg*CRTPrimesConstant[rid]*CRTPrimesConstant[rid];
+//     __syncthreads();
+//     a[rid*N + cid + half + 1] = 0;
+//     a[rid*N + cid] %= CRTPrimesConstant[rid];
+//   }
 
-}
+// }
 
-__global__ void polynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q, const int q_bits){     
+__global__ void polynomialReductionCoefs( bn_t *a,
+                                          const int half,
+                                          const int N,
+                                          bn_t q,
+                                          const int q_bits, 
+                                          bn_t uq){     
   ////////////////////////////////////////////////////////
   // This kernel must be executed with (N-half) threads //
   ////////////////////////////////////////////////////////
@@ -1291,19 +1306,34 @@ __global__ void polynomialReductionCoefs(bn_t *a,const int half,const int N,cons
     int carry = bn_subn_low(  a[cid].dp,
                               a[cid].dp,
                               a[cid + half + 1].dp,
-                              min_d(a[cid].used, a[cid + half + 1].used)
+                              max_d(a[cid].used, a[cid + half + 1].used)
                             );
+    a[cid].used = max_d(a[cid].used, a[cid + half + 1].used);
     bn_adjust_used(&a[cid]);
     
     if(carry == BN_NEG){
-      // q - (UINT64_MAX - c)
-      // compl2 == UINT64_MAX - C      
-      
-      // bn_2_compl(&a[cid]);
+      // two's complement of a's words
+      // two's complement of x is equal to the complement of x plus 1
+      a[cid].dp[0] = (~a[cid].dp[0]) + 1;
+      for(int i = 1; i < a[cid].used; i++)
+        a[cid].dp[i] = (~a[cid].dp[i]);
+
+      // (a-b) % q
+      // bn_mod_barrt( &a[cid],
+      //               a[cid],
+      //               q.dp,
+      //               q.used,
+      //               uq.dp,
+      //               uq.used);
+      mersenneDiv(&a[cid], &q, q_bits);           
+      bn_adjust_used(&a[cid]);
+
+      // q - ((a-b) % q)
       carry = bn_subn_low(  a[cid].dp,
                             q.dp,
                             a[cid].dp,
                             q.used );
+
       assert(carry == BN_POS);
       a[cid].used = q.used;
       bn_zero_non_used(&a[cid]);
@@ -1313,7 +1343,12 @@ __global__ void polynomialReductionCoefs(bn_t *a,const int half,const int N,cons
 
 }
 
-__host__ void CUDAFunctions::callPolynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q, const int nq){  
+__host__ void CUDAFunctions::callPolynomialReductionCoefs(  bn_t *a,
+                                                            const int half,
+                                                            const int N,
+                                                            const bn_t q,
+                                                            const int nq,
+                                                            const bn_t uq){  
     const int size = (N-half);
 
     dim3 blockDim(ADDBLOCKXDIM);
@@ -1325,7 +1360,8 @@ __host__ void CUDAFunctions::callPolynomialReductionCoefs(bn_t *a,const int half
                                                               half,
                                                               N,
                                                               q,
-                                                              nq);
+                                                              nq,
+                                                              uq);
     cudaError_t result = cudaGetLastError();
     assert(result == cudaSuccess);
 
@@ -1395,10 +1431,10 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     for(unsigned int i = 0; i < CRTPrimes.size();i++){
       h_Mpis[i].alloc = 0;
       get_words_host(&h_Mpis[i],CRTMpi[i]);
-    result = cudaMemcpyToSymbolAsync(Mpis, h_Mpis[i].dp, STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaMemcpyHostToDevice,NULL);
-    assert(result == cudaSuccess);
-    result = cudaMemcpyToSymbolAsync(Mpis_used,&h_Mpis[i].used, sizeof(int),i*sizeof(int),cudaMemcpyHostToDevice,NULL);
-    assert(result == cudaSuccess);
+      result = cudaMemcpyToSymbolAsync(Mpis, h_Mpis[i].dp, STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaMemcpyHostToDevice,NULL);
+      assert(result == cudaSuccess);
+      result = cudaMemcpyToSymbolAsync(Mpis_used,&h_Mpis[i].used, sizeof(int),i*sizeof(int),cudaMemcpyHostToDevice,NULL);
+      assert(result == cudaSuccess);
     }
 
     /////////////////

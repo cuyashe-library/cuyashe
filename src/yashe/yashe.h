@@ -37,6 +37,7 @@ class Yashe{
     static int nq; //
     static ZZ q; // 
     static bn_t Q; // 
+    static bn_t UQ; // 
     static bn_t qDiv2; // q/2
     static cuyasheint_t t; //
     static bn_t delta; // q/t

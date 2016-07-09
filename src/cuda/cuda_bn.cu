@@ -193,6 +193,8 @@ __host__ __device__ void bn_adjust_used(bn_t *a){
 	for(int i = a->used-1; i >= 0; i--)
 		if(a->dp[i] == 0)
 			a->used--;
+		else
+			return;
 }
 
 __global__ void bn_get_deg(int *r, bn_t *coefs, int N){
@@ -591,21 +593,20 @@ __host__ __device__ cuyasheint_t bn_mod1_low(	const uint64_t *a,
 	w = 0;
 	for (i = size - 1; i >= 0; i--) {
 		// Second 32 bits word
-		uint32_t hi = uint32_t(a[i] >> 32);
-		w = ((w << ((uint64_t)32)) | ((uint64_t)hi))*(hi > 0) + w*(hi == 0);
+		uint32_t hi = (a[i]>>32);
+		w = (w << 32) | ((uint64_t)(hi));
 
 		r = (uint32_t)(w/b)*(w >= b);
-		w -= (((uint64_t)r) * ((uint64_t)b))*(w >= b || hi > 0);
+		w -= (((uint32_t)(r)) * ((uint64_t)(b)))*(w >= b);
 		
 		// First 32 bits word
-		uint32_t lo = uint32_t(a[i] & 0xFFFFFFFF);
-		w = (w << ((uint64_t)32)) | ((uint64_t)lo);
+		uint32_t lo = (a[i])&0xffffffff;
+		w = (w << 32) | ((uint64_t)(lo));
 
 		r = (uint32_t)(w/b)*(w >= b);
-		w -= (((uint64_t)r) * ((uint64_t)b))*(w >= b);
-		
+		w -= (((uint32_t)(r)) * ((uint64_t)(b)))*(w >= b);
 	}
-	return (cuyasheint_t)w;
+	return (uint32_t)w;
 }
 
 // Multiply 
@@ -697,12 +698,17 @@ __device__ void bn_64bits_mulmod(cuyasheint_t *result,
 	/////////
 	// Mod //
 	/////////
-	uint64_t r[] = {	(uint64_t)(rLo & 0xFFFFFFFF),
-						(uint64_t)(rLo >> 32),
-						(uint64_t)(rHi & 0xFFFFFFFF),
-						(uint64_t)(rHi >> 32) 
+	uint64_t r[] = {	rLo,
+						rHi,
 					};
-	*result = bn_mod1_low(r,4,(uint64_t)m);
+	// uint64_t r[] = {	(uint64_t)(rLo & 0xFFFFFFFF),
+	// 					(uint64_t)(rLo >> 32),
+	// 					(uint64_t)(rHi & 0xFFFFFFFF),
+	// 					(uint64_t)(rHi >> 32) 
+	// 				};
+					
+	// *result = bn_mod1_low(r,4,(uint64_t)m);
+	*result = bn_mod1_low(r,2,(uint64_t)m);
 }
 
 // Div
@@ -916,8 +922,10 @@ __host__ __device__ uint32_t bn_add1_low_32(uint32_t *c, const uint32_t *a, uint
  * @param  size [description]
  * @return      [description]
  */
-__host__ __device__ uint64_t bn_subn_low(uint64_t * c, const uint64_t * a,
-		const uint64_t * b, int size) {
+__host__ __device__ uint64_t bn_subn_low(	uint64_t * c,
+											const uint64_t * a,
+											const uint64_t * b,
+											int size) {
 	int i;
 	uint64_t carry, r0, diff;
 
@@ -925,6 +933,7 @@ __host__ __device__ uint64_t bn_subn_low(uint64_t * c, const uint64_t * a,
 	carry = 0;
 	for (i = 0; i < size; i++, a++, b++, c++) {
 		diff = (*a) - (*b);
+		// diff *= ((*a) >= (*b)) - ((*a) < (*b)); // Multiply by -1 if a<b
 		r0 = diff - carry;
 		carry = ((*a) < (*b)) || (carry && !diff);
 		(*c) = r0;
@@ -1154,20 +1163,24 @@ __device__ void bn_muln_low(cuyasheint_t *c,
  * @param su [description]
  */
 
-__device__ void bn_mod_barrt(	bn_t *C, const bn_t *A,const int NCoefs,
-								const cuyasheint_t * m,  int sm, const cuyasheint_t * u, int su
+__device__ void bn_mod_barrt(	bn_t *C,
+								const bn_t A,
+								const cuyasheint_t * m,
+								int sm,
+								const cuyasheint_t * u,
+								int su
 							) {
 
 	/**
 	 * Each thread handles one coefficient
 	 */
 	
-	const int cid = threadIdx.x + blockDim.x*blockIdx.x;
+	// const int cid = threadIdx.x + blockDim.x*blockIdx.x;
 
-	if(cid < NCoefs){
-		cuyasheint_t *a = A[cid].dp;
-		int sa = A[cid].used;
-		cuyasheint_t *c = C[cid].dp;
+	// if(cid < NCoefs){
+		cuyasheint_t *a = A.dp;
+		int sa = A.used;
+		cuyasheint_t *c = C->dp;
 
 		if(bn_cmpn_low(a, m, sm) == CMP_LT)
 			return;
@@ -1258,8 +1271,8 @@ __device__ void bn_mod_barrt(	bn_t *C, const bn_t *A,const int NCoefs,
 		for (i = 0; i < st; i++)
 			c[i] = t[i];
 
-		C[cid].used = st;
-	}
+		C->used = st;
+	// }
 }
 
 /**
@@ -1279,7 +1292,7 @@ __global__ void cuModN(bn_t * c, bn_t * a, const int NCoefs,
 	 */
 	const unsigned int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	if(tid < NCoefs){
-		bn_mod_barrt(c,a,NCoefs,m,get_used_index(m,sm)+1,u,get_used_index(u,su)+1);
+		bn_mod_barrt(c,a[tid],m,get_used_index(m,sm)+1,u,get_used_index(u,su)+1);
 		bn_zero_non_used(&a[tid]);
 	}
 }
@@ -1409,6 +1422,7 @@ __global__ void cuPreICRT(	cuyasheint_t *inner_results,
 
 		inner_results_used[tid] = Mpis_used[rid];
 
+
 		/** 
 		 * The frequency of branching at this point is so low that 
 		 * doing this is faster than using some non-branch technic
@@ -1472,14 +1486,13 @@ __global__ void cuICRT(	bn_t *poly,
  	 	 * At this point a thread i finished the computation of coefficient i
  	 	 */
   		bn_adjust_used(&coef);
- 		poly[cid] = coef;
-		bn_mod_barrt(	poly,
-						poly,
-						N,
+		bn_mod_barrt(	&coef,
+						coef,
 						M,
 						M_used,
 						u,
 						u_used);
+ 		poly[cid] = coef;
     	bn_zero_non_used(&poly[cid]);
 	 }
 

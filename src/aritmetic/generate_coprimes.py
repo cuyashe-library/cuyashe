@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from fractions import gcd
+import prime as Prime
 
 # Receives a integer and a list.
 # Returns true if n is coprime with every integer in the list
@@ -17,7 +18,10 @@ for n in range(9,32):
 	coprimes[n] = list()
 	for i in xrange(pow(2,n)-1,0,-1):
 		if coprime_check(i,coprimes[n]) is True:
-			coprimes[n].append(i)
+			# Comment this to generate primes instead of coprimes
+			if Prime.is_prime(i):
+				coprimes[n].append(i)
+			# coprimes[n].append(i)
 		if len(coprimes[n]) >= 200:
 			break
 
