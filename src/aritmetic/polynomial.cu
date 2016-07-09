@@ -305,6 +305,10 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq,const bn_t uq){
  * @param nq   2^{nq} - 1
  */
 void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq){
+	poly_init(fInv);
+	
+	ZZ x = poly_get_coeff(f,nphi);
+
 	///////////////////////////////
 	// This is a very ugly hack. //
 	///////////////////////////////

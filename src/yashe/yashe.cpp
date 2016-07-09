@@ -89,8 +89,8 @@ void Yashe::generate_keys(){
 
   try{
       log_debug("will try to compute fInv");
-      poly_invmod(&fInv,&f,nphi, nq); 
-      // fInv = f;
+      poly_init(&fInv);
+      poly_set_coeff(&fInv,1,NTL::InvMod(poly_get_coeff(&f,poly_get_deg(&f)-1),q)),
       log_debug("fInv computed.");
       log_debug("fInv: " + poly_print(&fInv));
       break;
@@ -227,8 +227,6 @@ poly_t Yashe::decrypt(poly_t c){
 
   poly_t m;
   poly_init(&m);
-  std::cout << "f: " << poly_print(&f) << std::endl;
-  std::cout << "C: " << poly_print(&c) << std::endl;
 
   poly_mul(&m, &f, &c);
   log_debug("[c*f]: " + poly_print(&m));

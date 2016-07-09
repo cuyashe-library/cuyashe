@@ -68,12 +68,13 @@ struct YasheSuite
         log_init("yashe_test.log");
 
         // Init
-        OP_DEGREE = 4;
-        // OP_DEGREE = 32;
+        //OP_DEGREE = 4096;
+        //OP_DEGREE = 32;
+        OP_DEGREE = 1024;
         int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
         // t = 17;
-        t = 1024;
+        t = 4096;
         ZZ w = NTL::power2_ZZ(32);
 
         gen_crt_primes(q,OP_DEGREE);
