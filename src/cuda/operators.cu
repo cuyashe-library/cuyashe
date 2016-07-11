@@ -1295,10 +1295,9 @@ __global__ void polynomialReductionCoefs( bn_t *a,
   const int tid = threadIdx.x + blockIdx.x*blockDim.x;
   const int cid = tid % (N-half);
 
-  if(cid + half + 1 < N){
+  if(tid < (N-half) && cid + half + 1 < N){
     bn_adjust_used(&a[cid]);
     bn_adjust_used(&a[cid+half+1]);
-
     /////////////
     // a % phi //
     /////////////
@@ -1336,7 +1335,7 @@ __global__ void polynomialReductionCoefs( bn_t *a,
 
       assert(carry == BN_POS);
       a[cid].used = q.used;
-      bn_zero_non_used(&a[cid]);
+      bn_adjust_used(&a[cid]);
     }
     bn_zero(&a[cid + half + 1]);
   }
@@ -1386,12 +1385,11 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     /////////////////
     // Copy primes //
     /////////////////
-    cudaError_t result = cudaMemcpyToSymbolAsync ( CRTPrimesConstant,
+    cudaError_t result = cudaMemcpyToSymbol ( CRTPrimesConstant,
                                                     &(CRTPrimes[0]),
                                                     CRTPrimes.size()*sizeof(cuyasheint_t),
                                                     0,
-                                                   cudaMemcpyHostToDevice,
-                                                    NULL
+                                                   cudaMemcpyHostToDevice
                                             );
     assert(result == cudaSuccess);
 
@@ -1403,9 +1401,9 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     
     get_words_host(&h_M,CRTProduct);
     assert(h_M.alloc >= STD_BNT_WORDS_ALLOC);
-    result = cudaMemcpyToSymbolAsync(M,h_M.dp, h_M.used*sizeof(cuyasheint_t),0,cudaMemcpyHostToDevice,NULL);
+    result = cudaMemcpyToSymbol(M,h_M.dp, h_M.used*sizeof(cuyasheint_t),0,cudaMemcpyHostToDevice);
     assert(result == cudaSuccess);
-    result = cudaMemcpyToSymbolAsync(M_used,&h_M.used, sizeof(int),0,cudaMemcpyHostToDevice,NULL);
+    result = cudaMemcpyToSymbol(M_used,&h_M.used, sizeof(int),0,cudaMemcpyHostToDevice);
     assert(result == cudaSuccess);
     
     ////////////
@@ -1416,10 +1414,11 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     bn_t d_u = get_reciprocal(CRTProduct);
     h_u = (cuyasheint_t*)malloc(d_u.alloc*sizeof(cuyasheint_t));
     // assert(d_u.alloc >= STD_BNT_WORDS_ALLOC);
-    cudaMemcpyAsync(h_u,d_u.dp,d_u.alloc*sizeof(cuyasheint_t),cudaMemcpyDeviceToHost,NULL);
-    result = cudaMemcpyToSymbolAsync(u,h_u,d_u.alloc*sizeof(cuyasheint_t),0,cudaMemcpyHostToDevice,NULL);
+    result = cudaMemcpy(h_u,d_u.dp,d_u.alloc*sizeof(cuyasheint_t),cudaMemcpyDeviceToHost);
     assert(result == cudaSuccess);
-    result = cudaMemcpyToSymbolAsync(u_used,&d_u.used, sizeof(int),0,cudaMemcpyHostToDevice,NULL);
+    result = cudaMemcpyToSymbol(u,h_u,d_u.alloc*sizeof(cuyasheint_t),0,cudaMemcpyHostToDevice);
+    assert(result == cudaSuccess);
+    result = cudaMemcpyToSymbol(u_used,&d_u.used, sizeof(int),0,cudaMemcpyHostToDevice);
     assert(result == cudaSuccess);
     
     //////////////
@@ -1431,9 +1430,9 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     for(unsigned int i = 0; i < CRTPrimes.size();i++){
       h_Mpis[i].alloc = 0;
       get_words_host(&h_Mpis[i],CRTMpi[i]);
-      result = cudaMemcpyToSymbolAsync(Mpis, h_Mpis[i].dp, STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaMemcpyHostToDevice,NULL);
+      result = cudaMemcpyToSymbol(Mpis, h_Mpis[i].dp, STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaMemcpyHostToDevice);
       assert(result == cudaSuccess);
-      result = cudaMemcpyToSymbolAsync(Mpis_used,&h_Mpis[i].used, sizeof(int),i*sizeof(int),cudaMemcpyHostToDevice,NULL);
+      result = cudaMemcpyToSymbol(Mpis_used,&h_Mpis[i].used, sizeof(int),i*sizeof(int),cudaMemcpyHostToDevice);
       assert(result == cudaSuccess);
     }
 
@@ -1441,19 +1440,18 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     // Copy InvMpi //
     /////////////////
 
-  result = cudaMemcpyToSymbolAsync(invMpis,
+  result = cudaMemcpyToSymbol(invMpis,
                 &CRTInvMpi[0],
                 CRTPrimes.size()*sizeof(cuyasheint_t),
                 0,
-                cudaMemcpyHostToDevice,
-                NULL
+                cudaMemcpyHostToDevice
               );
     assert(result == cudaSuccess);
 
     ////////////////////
     // Release memory //
     ////////////////////
-  result = cudaDeviceSynchronize();
+    result = cudaDeviceSynchronize();
     assert(result == cudaSuccess);
     for(unsigned int i = 0; i < CRTPrimes.size();i++)
       free(h_Mpis[i].dp);

@@ -1494,6 +1494,7 @@ __global__ void cuICRT(	bn_t *poly,
 						u_used);
  		poly[cid] = coef;
     	bn_zero_non_used(&poly[cid]);
+    	bn_adjust_used(&poly[cid]);
 	 }
 
 }
@@ -1532,8 +1533,6 @@ void callCRT(bn_t *coefs,const int used_coefs,cuyasheint_t *d_polyCRT,const int 
 	cuCRT<<<gridDim,blockDim,0,stream>>>(d_polyCRT,coefs,used_coefs,N,NPolis);
 	result = cudaGetLastError();
 	assert(result == cudaSuccess);
-	// cudaDeviceSynchronize();
-	// assert(result == cudaSuccess);
 
 }
 

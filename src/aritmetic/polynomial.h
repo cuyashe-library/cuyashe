@@ -47,6 +47,12 @@ struct polynomial {
 void poly_init(poly_t *a);
 
 /**
+ * [poly_free description]
+ * @param a [description]
+ */
+void poly_free(poly_t *a);
+
+/**
  * [poly_copy_to_device description]
  * @param a [description]
  */

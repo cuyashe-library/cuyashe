@@ -50,6 +50,35 @@ void poly_init(poly_t *a){
 	result = cudaMalloc((void**)&a->d_coefs_transf,CUDAFunctions::N*CRTPrimes.size()*sizeof(Complex));
 	assert( result == cudaSuccess);
 	#endif
+
+}
+
+/**
+ * [poly_free description]
+ * @param a [description]
+ */
+void poly_free(poly_t *a){
+	// CRT residues
+	cudaError_t result;
+	a->coefs.clear();
+	result = cudaFree(a->d_coefs);
+	assert(result == cudaSuccess);
+
+	// BN_T
+	bn_t d_first;
+	result = cudaMemcpy(&d_first,a->d_bn_coefs,sizeof(bn_t),cudaMemcpyDeviceToHost);
+	assert(result == cudaSuccess);
+	result = cudaFree(d_first.dp);
+	assert(result == cudaSuccess);
+	result = cudaFree(a->d_bn_coefs);
+	assert(result == cudaSuccess);
+
+	// FFT residues
+	#ifdef CUFFTMUL_TRANSFORM
+	result = cudaFree(a->d_coefs_transf);
+	assert(result == cudaSuccess);
+	#endif
+
 }
 
 /**
@@ -269,17 +298,16 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq,const bn_t uq){
 	// poly_elevate(a);
 	
 	// log_notice("reducing on GPU/COEFS")
-	if(a->status == TRANSSTATE)
+	if(a->status == TRANSSTATE){
 		poly_demote(a);
-	else if(a->status == HOSTSTATE)
+		callICRT(a->d_bn_coefs,
+		      a->d_coefs,
+		      CUDAFunctions::N,
+		      CRTPrimes.size(),
+		      NULL
+	    );
+	}else if(a->status == HOSTSTATE)
 		poly_elevate(a);
-
-	  callICRT(a->d_bn_coefs,
-	      a->d_coefs,
-	      CUDAFunctions::N,
-	      CRTPrimes.size(),
-	      NULL
-    );
 
 	CUDAFunctions::callPolynomialReductionCoefs(a->d_bn_coefs, half, CUDAFunctions::N, q, nq, uq);
 	callMersenneDiv(a->d_bn_coefs , q, nq, CUDAFunctions::N, NULL);
@@ -305,10 +333,6 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq,const bn_t uq){
  * @param nq   2^{nq} - 1
  */
 void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq){
-	poly_init(fInv);
-	
-	ZZ x = poly_get_coeff(f,nphi);
-
 	///////////////////////////////
 	// This is a very ugly hack. //
 	///////////////////////////////
@@ -316,7 +340,7 @@ void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq){
 	//
 	ZZ_pEX ntl_f;
 	for(int i = 0; i <= poly_get_deg(f); i++)
-	NTL::SetCoeff(ntl_f,i,conv<ZZ_p>(poly_get_coeff(f,i)));
+		NTL::SetCoeff(ntl_f,i,conv<ZZ_p>(poly_get_coeff(f,i)));
 	ZZ_pEX ntl_phi;
 	NTL::SetCoeff(ntl_phi,0,conv<ZZ_p>(1));
 	NTL::SetCoeff(ntl_phi,nphi,conv<ZZ_p>(1));
@@ -586,6 +610,11 @@ void get_words_host(bn_t *b,ZZ a){
   b->dp = h_dp;
 }
 
+/**
+ * receives a bn_t (on CPU memory) and returns the related ZZ
+ * @param  a [description]
+ * @return   [description]
+ */
 ZZ get_ZZ(bn_t *a){
   ZZ b = conv<ZZ>(0);
   for(int i = a->used-1; i >= 0;i--)

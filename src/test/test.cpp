@@ -28,7 +28,7 @@ struct AritmeticSuite
         int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
         get_words(&Q,q);
-        UQ = get_reciprocal(Q);
+        UQ = get_reciprocal(q);
         gen_crt_primes(q,OP_DEGREE);
         CUDAFunctions::init(OP_DEGREE);
         poly_init(&phi);
@@ -69,12 +69,12 @@ struct YasheSuite
 
         // Init
         //OP_DEGREE = 4096;
-        //OP_DEGREE = 32;
-        OP_DEGREE = 1024;
+        OP_DEGREE = 32;
+        // OP_DEGREE = 1024;
         int mersenne_n = 127;
         q = NTL::power2_ZZ(mersenne_n) - 1;
         // t = 17;
-        t = 4096;
+        t = 1024;
         ZZ w = NTL::power2_ZZ(32);
 
         gen_crt_primes(q,OP_DEGREE);
@@ -151,6 +151,8 @@ BOOST_AUTO_TEST_CASE(crt)
 
         for(int i = 0; i < OP_DEGREE;i++)
             BOOST_CHECK_EQUAL(poly_get_coeff(&a,i) , to_ZZ(i*i));
+
+        poly_free(&a);
     }
 }
 
@@ -182,6 +184,10 @@ BOOST_AUTO_TEST_CASE(add)
 
         BOOST_CHECK_EQUAL(x+y,z);
     }
+
+    poly_free(&a);
+    poly_free(&b);
+    poly_free(&c);
 
 }
 
@@ -220,6 +226,11 @@ BOOST_AUTO_TEST_CASE(mul)
 
         BOOST_CHECK_EQUAL(poly_get_coeff(&c,i) , ntl_value);
     }
+
+    poly_free(&a);
+    poly_free(&b);
+    poly_free(&c);
+
 }
 
 BOOST_AUTO_TEST_CASE(add_mul)
@@ -262,6 +273,67 @@ BOOST_AUTO_TEST_CASE(add_mul)
 
         BOOST_CHECK_EQUAL(poly_get_coeff(&c,i) , ntl_value);
     }
+
+    poly_free(&a);
+    poly_free(&b);
+    poly_free(&c);
+}
+
+BOOST_AUTO_TEST_CASE(simpleReduce)
+{
+    for(int count = 0; count < NTESTS; count++){
+        poly_t a;
+        poly_init(&a);
+
+        poly_set_coeff(&a,0,to_ZZ("0"));
+        poly_set_coeff(&a,1,to_ZZ("0"));
+        poly_set_coeff(&a,2,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,3,to_ZZ("0"));
+        poly_set_coeff(&a,4,to_ZZ("0"));
+        poly_set_coeff(&a,5,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,6,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,7,to_ZZ("0"));
+        poly_set_coeff(&a,8,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,9,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,10,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,11,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,12,to_ZZ("0"));
+        poly_set_coeff(&a,13,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,14,to_ZZ("0"));
+        poly_set_coeff(&a,15,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,16,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,17,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,18,to_ZZ("0"));
+        poly_set_coeff(&a,19,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,20,to_ZZ("0"));
+        poly_set_coeff(&a,21,to_ZZ("0"));
+        poly_set_coeff(&a,22,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,23,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,24,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,25,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,26,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,27,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,28,to_ZZ("0"));
+        poly_set_coeff(&a,29,to_ZZ("0"));
+        poly_set_coeff(&a,30,to_ZZ("174054430680060024061516111701349440158720"));
+        poly_set_coeff(&a,31,to_ZZ("0"));
+        poly_set_coeff(&a,32,to_ZZ("174054430680060024061516111701349440158720"));
+   
+        poly_reduce(&a,OP_DEGREE,Q,NTL::NumBits(q),UQ);
+
+        if(OP_DEGREE == 32){
+            ZZ expected_result[] = {to_ZZ("1"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0")};
+            
+            for(int i = 0; i < OP_DEGREE;i++)
+                BOOST_CHECK_EQUAL(poly_get_coeff(&a,i),expected_result[i]);
+            
+        }else{
+            throw "";
+        }
+
+        poly_free(&a);
+    }
+
 }
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -269,15 +341,21 @@ BOOST_FIXTURE_TEST_SUITE(YasheFixture, YasheSuite)
 
 BOOST_AUTO_TEST_CASE(encryptdecrypt)
 {
-    poly_t m;
-    poly_init(&m);
+ 
+    for(int i = 0; i < NTESTS; i++){
+        poly_t m;
+        poly_init(&m);
+    	std::cout << "Testing " << (i+1) << std::endl;
+    	
+        poly_set_coeff(&m,0,to_ZZ(i+1));
 
-    poly_set_coeff(&m,0,to_ZZ(13));
+        poly_t c = cipher->encrypt(m); //
 
-    poly_t c = cipher->encrypt(m); //
+        poly_t d = cipher->decrypt(c); //
 
-    poly_t d = cipher->decrypt(c); //
-
-    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&d, 0));
+        BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&d, 0));
+        
+        poly_free(&m);
+    }
 }
 BOOST_AUTO_TEST_SUITE_END()

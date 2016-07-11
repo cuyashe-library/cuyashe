@@ -90,13 +90,30 @@ void Yashe::generate_keys(){
   try{
       log_debug("will try to compute fInv");
       poly_init(&fInv);
-      poly_set_coeff(&fInv,1,NTL::InvMod(poly_get_coeff(&f,poly_get_deg(&f)-1),q)),
-      log_debug("fInv computed.");
+      // ZZ coeff = poly_get_coeff(&f,poly_get_deg(&f));
+      // poly_set_coeff(&fInv,1,NTL::InvMod(coeff,q)),
+      // std::cout << "coeff: " << coeff << std::endl;
+      poly_invmod(&fInv,&f,nphi,nq);
+
+      poly_t test;
+      poly_init(&test);
+      poly_mul(&test,&f,&fInv);
+      poly_reduce(&test,nphi,Yashe::Q,nq,Yashe::UQ);
+      log_debug("test: " + poly_print(&test));
       log_debug("fInv: " + poly_print(&fInv));
+      std::cout << poly_get_coeff(&test,0) << std::endl;
+      if(poly_get_deg(&test) != 0)
+        throw std::runtime_error("wrong degree");
+      if(poly_get_coeff(&test,0) != to_ZZ(1))
+        throw std::runtime_error("0-coefficient different than 1");
+
+      log_debug("fInv computed.");
       break;
     } catch (exception& e)
     {
-      log_warn("f has no modular inverse.");
+      log_warn("f has no modular inverse: ");
+      log_warn(e.what());
+      std::cout << "f has no modular inverse: " << e.what()<< std::endl;
     }
   }
   ////////////

@@ -43,15 +43,14 @@ __global__ void generate_narrow_random_numbers(	bn_t *coefs,
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (tid <= N){	
-    	int value = llrintf(curand_uniform(&states[tid])); // [-1, 0 , 1];
-	value += (tid == N);
-    	// value -= llrintf(curand_uniform(&states[tid]));
-    	
-    	// if(value == 0 && tid == N)
-    	// 	value = 1;
-
-    	// for(int i = 0; i < NPrimes; i++)
-    		// coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
+    	// This is not a "narrow" distribution, as defined in [Bos et al. 2013],
+    	// [-1,0,1], but a binary distribution. However, it is a pain to deal 
+    	// with negative values on unsigned integers.
+    	// Í'm not sure this is secure enough 
+    	// 
+    	int value = llrintf(curand_uniform(&states[tid])); 
+		// This is our guarantee that the polynomial will assume the desired degree
+		value += (tid == N && value == 0); 
     	coefs[tid].dp[0] = value;
     	coefs[tid].used = 1;
     	bn_zero_non_used(&coefs[tid]);
@@ -96,10 +95,8 @@ __global__ void generate_normal_random_numbers(	bn_t *coefs,
 
     if (tid < N){	
     	int value = curand_normal (&states[tid])*stddev + mean; 
-	value += (tid == N);
-    	// for(int i = 0; i < NPrimes; i++){
-    		// coefs[tid + spacing*i] = value % CRTPrimesConstant[i];
-    	// }
+		// This is our guarantee that the polynomial will assume the desired degree
+		value += (tid == N && value == 0); 
     	coefs[tid].dp[0] = value;
     	coefs[tid].used = 1;
     	bn_zero_non_used(&coefs[tid]);
