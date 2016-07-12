@@ -212,13 +212,13 @@ __global__ void polynomialcuFFTMul(Complex *c, const Complex *a,const Complex *b
 }
 // #elif defined(NTTMUL)
 
-__host__ __device__ bool overflow(const uint64_t a, const uint64_t b){
+__device__ bool overflow(const uint64_t a, const uint64_t b){
   // True if a+b will result in a integer overflow.
   return (a+b) < a;
   // return lessThan((a+b),a);
 }
 
-__host__ __device__ uint64_t s_rem (uint64_t a)
+__device__ uint64_t s_rem (uint64_t a)
 {
   // Special reduction for prime 2^64-2^32+1
   //
@@ -246,7 +246,7 @@ __host__ __device__ uint64_t s_rem (uint64_t a)
   return res;
 }
 
-__host__ __device__  inline uint64_t s_mul(uint64_t a,uint64_t b){
+__device__  inline uint64_t s_mul(uint64_t a,uint64_t b){
   // Multiply and reduce a and b by prime 2^64-2^32+1
   #ifdef __CUDA_ARCH__
   const uint64_t GAP = (UINT64_MAX-PRIMEP+1);
@@ -291,7 +291,7 @@ __host__ __device__  inline uint64_t s_mul(uint64_t a,uint64_t b){
   #endif
   return res;
 }
-__host__ __device__ inline  uint64_t s_add(uint64_t a,uint64_t b){
+__device__ inline  uint64_t s_add(uint64_t a,uint64_t b){
   // Add and reduce a and b by prime 2^64-2^32+1
   // 4294967295L == UINT64_MAX - P
   uint64_t res = a+b;
@@ -300,7 +300,7 @@ __host__ __device__ inline  uint64_t s_add(uint64_t a,uint64_t b){
   return s_rem(res);
 }
 
-__host__ __device__ inline uint64_t s_sub(uint64_t a,uint64_t b){
+__device__ inline uint64_t s_sub(uint64_t a,uint64_t b){
   // Computes a-b % P
   // 4294967295L == UINT64_MAX - P
 
@@ -527,7 +527,7 @@ __device__ void butterfly<8,FORWARD>(uint64_t *v){
 //                                                     s_mul(v7,WInv8[49]));
 // }
 
-__host__ __device__ int expand(int idxL, int N1, int N2){
+__device__ int expand(int idxL, int N1, int N2){
 	return (idxL/N1)*N1*N2 + (idxL%N1);
 }
 
@@ -539,7 +539,7 @@ __global__ void NTTScale(cuyasheint_t *data,const int size,const int N){
 } 
 
 template<int RADIX, int type>
-__host__ __device__ void NTTIteration(cuyasheint_t *W,
+__device__ void NTTIteration(cuyasheint_t *W,
                                       cuyasheint_t *WInv,
                                       const int residue_index,
                                       const int j,
@@ -1286,8 +1286,7 @@ __global__ void polynomialReductionCoefs( bn_t *a,
                                           const int half,
                                           const int N,
                                           bn_t q,
-                                          const int q_bits, 
-                                          bn_t uq){     
+                                          const int q_bits){     
   ////////////////////////////////////////////////////////
   // This kernel must be executed with (N-half) threads //
   ////////////////////////////////////////////////////////
@@ -1318,12 +1317,13 @@ __global__ void polynomialReductionCoefs( bn_t *a,
         a[cid].dp[i] = (~a[cid].dp[i]);
 
       // (a-b) % q
-      // bn_mod_barrt( &a[cid],
-      //               a[cid],
-      //               q.dp,
-      //               q.used,
-      //               uq.dp,
-      //               uq.used);
+      int check = (a[cid].used-1)*WORD;
+      cuyasheint_t last_word = a[cid].dp[a[cid].used-1];
+      while(last_word > 0){
+        check++;
+        last_word = (last_word>>1);
+      }
+      assert(check < 2*q_bits);
       mersenneDiv(&a[cid], &q, q_bits);           
       bn_adjust_used(&a[cid]);
 
@@ -1346,8 +1346,7 @@ __host__ void CUDAFunctions::callPolynomialReductionCoefs(  bn_t *a,
                                                             const int half,
                                                             const int N,
                                                             const bn_t q,
-                                                            const int nq,
-                                                            const bn_t uq){  
+                                                            const int nq ){  
     const int size = (N-half);
 
     dim3 blockDim(ADDBLOCKXDIM);
@@ -1359,8 +1358,7 @@ __host__ void CUDAFunctions::callPolynomialReductionCoefs(  bn_t *a,
                                                               half,
                                                               N,
                                                               q,
-                                                              nq,
-                                                              uq);
+                                                              nq);
     cudaError_t result = cudaGetLastError();
     assert(result == cudaSuccess);
 

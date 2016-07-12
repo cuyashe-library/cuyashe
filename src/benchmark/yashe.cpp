@@ -28,7 +28,14 @@
 #include "../logging/logging.h"
 #include "../distribution/distribution.h"
 
+#define BILLION  1000000000L
+#define MILLION  1000000L
 #define N 100
+
+double compute_time_ms(struct timespec start,struct timespec stop){
+  return (( stop.tv_sec - start.tv_sec )*BILLION + ( stop.tv_nsec - start.tv_nsec ))/MILLION;
+}
+
 
  double runEncrypt(Yashe cipher,int d){
   struct timespec start, stop;

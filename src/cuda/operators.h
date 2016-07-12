@@ -176,7 +176,11 @@ class CUDAFunctions{
     static void init(int N);
     static void write_crt_primes();
     
-    static void callPolynomialReductionCoefs(bn_t *a,const int half,const int N,const bn_t q, const int nq,const bn_t uq);
+    static void callPolynomialReductionCoefs(   bn_t *a,
+                                                const int half,
+                                                const int N,
+                                                const bn_t q,
+                                                const int nq );
   private:
 };
 __device__ __host__ inline uint64_t s_rem (uint64_t a);

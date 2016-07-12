@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE(mul)
     poly_t c;
     poly_init(&c);
     poly_mul(&c,&a,&b);
-    poly_reduce(&c,OP_DEGREE,Q,NTL::NumBits(q),UQ);
+    poly_reduce(&c,OP_DEGREE,Q,NTL::NumBits(q));
     ZZ_pEX ntl_c = ntl_a*ntl_b % conv<ZZ_pEX>(NTL_Phi);
 
     // Verify
@@ -319,7 +319,7 @@ BOOST_AUTO_TEST_CASE(simpleReduce)
         poly_set_coeff(&a,31,to_ZZ("0"));
         poly_set_coeff(&a,32,to_ZZ("174054430680060024061516111701349440158720"));
    
-        poly_reduce(&a,OP_DEGREE,Q,NTL::NumBits(q),UQ);
+        poly_reduce(&a,OP_DEGREE,Q,NTL::NumBits(q));
 
         if(OP_DEGREE == 32){
             ZZ expected_result[] = {to_ZZ("1"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0")};
@@ -339,15 +339,35 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_FIXTURE_TEST_SUITE(YasheFixture, YasheSuite)
 
+BOOST_AUTO_TEST_CASE(simpleEncryptdecrypt)
+{
+    
+    const int i = 2;
+
+    poly_t m;
+    poly_init(&m);
+    std::cout << "Testing " << i << std::endl;
+    
+    poly_set_coeff(&m,0,to_ZZ(i));
+
+    poly_t c = cipher->encrypt(m); //
+
+    poly_t d = cipher->decrypt(c); //
+
+    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&d, 0));
+    
+    poly_free(&m);
+}
+
 BOOST_AUTO_TEST_CASE(encryptdecrypt)
 {
  
-    for(int i = 0; i < NTESTS; i++){
+    for(int i = 2; i < NTESTS; i++){
         poly_t m;
         poly_init(&m);
-    	std::cout << "Testing " << (i+1) << std::endl;
+    	std::cout << "Testing " << (i) << std::endl;
     	
-        poly_set_coeff(&m,0,to_ZZ(i+1));
+        poly_set_coeff(&m,0,to_ZZ(i));
 
         poly_t c = cipher->encrypt(m); //
 

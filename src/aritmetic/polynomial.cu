@@ -58,6 +58,7 @@ void poly_init(poly_t *a){
  * @param a [description]
  */
 void poly_free(poly_t *a){
+	// Coefficients and CRT residues
 	// CRT residues
 	cudaError_t result;
 	a->coefs.clear();
@@ -79,6 +80,33 @@ void poly_free(poly_t *a){
 	assert(result == cudaSuccess);
 	#endif
 
+}
+
+
+/**
+ * [poly_clear description]
+ * @param a [description]
+ */
+void poly_clear(poly_t *a){
+	// Coefficients and CRT residues
+	cudaError_t result;
+	a->coefs.clear();
+	a->coefs.resize(CUDAFunctions::N);
+	result = cudaMemsetAsync(a->d_coefs,0,CUDAFunctions::N*CRTPrimes.size()*sizeof(cuyasheint_t));
+	assert(result == cudaSuccess);
+
+	// BN_T
+	bn_t d_first;
+	result = cudaMemcpy(&d_first,a->d_bn_coefs,sizeof(bn_t),cudaMemcpyDeviceToHost);
+	result = cudaMemsetAsync(d_first.dp,0,CUDAFunctions::N*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t));
+	assert(result == cudaSuccess);
+
+	// FFT residues
+	#ifdef CUFFTMUL_TRANSFORM
+	result = cudaMemsetAsync(a->d_coefs_transf,0,CUDAFunctions::N*CRTPrimes.size()*sizeof(Complex));
+	assert(result == cudaSuccess);
+	#endif
+	
 }
 
 /**
@@ -276,7 +304,7 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b){
   poly_biginteger_mul(c,a,B);
 }
 
-void poly_reduce(poly_t *a, int nphi, bn_t q, int nq,const bn_t uq){
+void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
 	const unsigned int half = nphi-1;     
 	
 	///////////
@@ -309,7 +337,7 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq,const bn_t uq){
 	}else if(a->status == HOSTSTATE)
 		poly_elevate(a);
 
-	CUDAFunctions::callPolynomialReductionCoefs(a->d_bn_coefs, half, CUDAFunctions::N, q, nq, uq);
+	CUDAFunctions::callPolynomialReductionCoefs(a->d_bn_coefs, half, CUDAFunctions::N, q, nq);
 	callMersenneDiv(a->d_bn_coefs , q, nq, CUDAFunctions::N, NULL);
     
     callCRT(a->d_bn_coefs,
@@ -342,8 +370,11 @@ void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq){
 	for(int i = 0; i <= poly_get_deg(f); i++)
 		NTL::SetCoeff(ntl_f,i,conv<ZZ_p>(poly_get_coeff(f,i)));
 	ZZ_pEX ntl_phi;
-	NTL::SetCoeff(ntl_phi,0,conv<ZZ_p>(1));
-	NTL::SetCoeff(ntl_phi,nphi,conv<ZZ_p>(1));
+	NTL::SetCoeff(ntl_phi,0,1);
+	NTL::SetCoeff(ntl_phi,nphi,1);
+
+	std::cout << "f: "  << ntl_f << std::endl;
+	std::cout << "phi: "  << ntl_phi << std::endl;
 
 	ZZ_pEX inv_f_ntl =  NTL::InvMod(ntl_f, ntl_phi);
 
@@ -838,26 +869,6 @@ ZZ poly_get_coeff(poly_t *a, int index){
 	while(a->status != HOSTSTATE)
 		poly_demote(a);
 	return a->coefs[index];
-}
-
-/**
- * release all memory used by this polynomial
- * @param a [description]
- */
-void poly_clear(poly_t *a){
-	a->coefs.clear();
-
-	cudaError_t result;
-	// CRT-NTT array
-	result = cudaFree(a->d_coefs);
-	assert(result == cudaSuccess);
-	result = cudaFree(a->d_bn_coefs);
-	assert(result == cudaSuccess);
-	#ifdef CUFFTMUL_TRANSFORM
-	// If CUFFTMUL mode
-	result = cudaFree(a->d_coefs_transf);
-	assert(result == cudaSuccess);
-	#endif
 }
 
 bool is_power_of_two(int n){

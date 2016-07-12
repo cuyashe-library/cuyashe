@@ -53,6 +53,12 @@ void poly_init(poly_t *a);
 void poly_free(poly_t *a);
 
 /**
+ * [poly_clear description]
+ * @param a [description]
+ */
+void poly_clear(poly_t *a);
+
+/**
  * [poly_copy_to_device description]
  * @param a [description]
  */
@@ -148,7 +154,7 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b);
  * @param nphi x^{nphi} - 1
  * @param nq   2^{nq} - 1
  */
-void poly_reduce(poly_t *f, int nphi, bn_t Q, int nq,const bn_t uq);
+void poly_reduce(poly_t *f, int nphi, bn_t Q, int nq);
 
 /**
  * computes the polynomial inverse in R_q

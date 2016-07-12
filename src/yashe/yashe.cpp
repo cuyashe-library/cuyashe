@@ -70,7 +70,9 @@ void Yashe::generate_keys(){
   get_words(&delta,q/to_ZZ(t));  
   std::cout << "delta: " << q/to_ZZ(t) << std::endl;  
 
-  // Compute f and fInv
+  ////////////////////////
+  // Compute f and fInv //
+  ////////////////////////
   poly_t fInv;
   while ( 1 == 1 ){
     xkey.get_sample(&fl, nphi-1);
@@ -85,27 +87,33 @@ void Yashe::generate_keys(){
     
     poly_add(&f,&f,&one);
     
-    poly_reduce(&f, nphi, Yashe::Q, nq,Yashe::UQ); 
+    poly_reduce(&f, nphi, Yashe::Q, nq); 
 
   try{
+      //////////////////
+      // Compute fInv //
+      //////////////////
       log_debug("will try to compute fInv");
       poly_init(&fInv);
-      // ZZ coeff = poly_get_coeff(&f,poly_get_deg(&f));
-      // poly_set_coeff(&fInv,1,NTL::InvMod(coeff,q)),
-      // std::cout << "coeff: " << coeff << std::endl;
+      ZZ coeff = poly_get_coeff(&f,poly_get_deg(&f));
+      poly_set_coeff(&fInv,1,NTL::InvMod(coeff,q)),
+      std::cout << "coeff: " << coeff << std::endl;
       poly_invmod(&fInv,&f,nphi,nq);
 
+      ////////////////////////
+      // Verify the inverse //
+      ////////////////////////
       poly_t test;
       poly_init(&test);
       poly_mul(&test,&f,&fInv);
-      poly_reduce(&test,nphi,Yashe::Q,nq,Yashe::UQ);
-      log_debug("test: " + poly_print(&test));
-      log_debug("fInv: " + poly_print(&fInv));
-      std::cout << poly_get_coeff(&test,0) << std::endl;
+      poly_reduce(&test,nphi,Yashe::Q,nq);
+
       if(poly_get_deg(&test) != 0)
         throw std::runtime_error("wrong degree");
       if(poly_get_coeff(&test,0) != to_ZZ(1))
         throw std::runtime_error("0-coefficient different than 1");
+      ////////////////////////
+      ////////////////////////
 
       log_debug("fInv computed.");
       break;
@@ -116,25 +124,15 @@ void Yashe::generate_keys(){
       std::cout << "f has no modular inverse: " << e.what()<< std::endl;
     }
   }
-  ////////////
-  // DEBUG  //
-  ////////////
-  // poly_clear(&f);
-  // poly_init(&f);
-
-  // poly_set_coeff(&f,0,to_ZZ(1));
-  // poly_set_coeff(&f,1,to_ZZ(0));
-  // poly_set_coeff(&f,2,to_ZZ(8174));
-  // poly_set_coeff(&f,3,to_ZZ(1));
   log_debug("f: " + poly_print(&f));
 
   // ff = f*f
   poly_mul(&ff,&f,&f);
-  poly_reduce(&ff,nphi,Yashe::Q,nq,Yashe::UQ);
+  poly_reduce(&ff,nphi,Yashe::Q,nq);
     
   // tff = ff*t
   poly_integer_mul(&tff,&ff,t);
-  poly_reduce(&tff,nphi,Yashe::Q,nq,Yashe::UQ);
+  poly_reduce(&tff,nphi,Yashe::Q,nq);
 
   // Sample
   xkey.get_sample(&g, nphi-1);
@@ -144,7 +142,7 @@ void Yashe::generate_keys(){
   log_debug("fInv*g: " + poly_print(&h));
   poly_integer_mul(&h, &h, t);
   log_debug("fInv*gt*t: " + poly_print(&h));
-  poly_reduce(&h, nphi, Yashe::Q,nq,Yashe::UQ);
+  poly_reduce(&h, nphi, Yashe::Q,nq);
   while(h.status != TRANSSTATE)
     poly_elevate(&h);
 
@@ -170,24 +168,8 @@ poly_t Yashe::encrypt(poly_t m){
   // start = get_cycles();
   xerr.get_sample(&ps,nphi-1);
   xerr.get_sample(&e,nphi-1);
-  // end = get_cycles();
-  // std::cout << "Encrypt sampling in " + std::to_string(end-start) + " cycles" << std::endl;
-  // poly_reduce(&e,nphi,nYashe::Q,nq,Yashe::UQ);
-  // poly_reduce(&ps,nphi,nYashe::Q,nq,Yashe::UQ);
   log_debug("ps: " + poly_print(&ps));
   log_debug("e: " + poly_print(&e));
-  
-  // poly_init(&ps);
-  // poly_init(&e);
-  // poly_set_coeff(&ps,0,to_ZZ(8188));
-  // poly_set_coeff(&ps,1,to_ZZ(0));
-  // poly_set_coeff(&ps,2,to_ZZ(8190));
-  // poly_set_coeff(&ps,3,to_ZZ(1));
-
-  // poly_set_coeff(&e,0,to_ZZ(2));
-  // poly_set_coeff(&e,1,to_ZZ(1));
-  // poly_set_coeff(&e,2,to_ZZ(0));
-  // poly_set_coeff(&e,3,to_ZZ(8190));
 
 	// 
   // start = get_cycles();
@@ -226,7 +208,7 @@ poly_t Yashe::encrypt(poly_t m){
 
   //
   // start = get_cycles();
-  poly_reduce(&c, nphi, Yashe::Q,nq,Yashe::UQ);
+  poly_reduce(&c, nphi, Yashe::Q,nq);
 
   // end = get_cycles();
   // std::cout << "poly_reduce in " + std::to_string(end-start) + " cycles" << std::endl;
@@ -234,6 +216,10 @@ poly_t Yashe::encrypt(poly_t m){
   
   // total_end = get_cycles(); 
   // std::cout << std::endl << "Yashe::encrypt in " + std::to_string(total_end-total_start) + " cycles" << std::endl<< std::endl;
+  
+  poly_clear(&ps); 
+  poly_clear(&e); 
+  
   return c;
 }
 
@@ -247,7 +233,7 @@ poly_t Yashe::decrypt(poly_t c){
 
   poly_mul(&m, &f, &c);
   log_debug("[c*f]: " + poly_print(&m));
-  poly_reduce(&m, nphi, Yashe::Q,nq,Yashe::UQ);
+  poly_reduce(&m, nphi, Yashe::Q,nq);
   log_debug("[c*f]_q \\in R: " + poly_print(&m));
 
   poly_integer_mul(&m, &m, t);
