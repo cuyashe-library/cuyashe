@@ -105,7 +105,7 @@ __host__ __device__ int bn_count_bits( bn_t *a){
 }
 
 /**
- * Computes x/q, where x is a bit integer and q is a mersenne prime
+ * Computes x%q, where x is a bit integer and q is a mersenne prime
  * @param  x      [description]
  * @param  q_bits [description]
  * @return        [description]
@@ -188,6 +188,55 @@ __device__ void mersenneDiv(	bn_t *x,
 }
 
 /**
+ * Computes x/q, where x is a bit integer and q is a mersenne prime
+ * @param  x      [description]
+ * @param  q_bits [description]
+ * @return        [description]
+ */
+__device__ void mersenneDivQ(	bn_t *x,
+								bn_t *q,
+								int q_bits){
+	if(x->used == 0)
+	return;
+
+
+	bn_adjust_used(x);
+	
+	int check = (x->used-1)*WORD;
+	cuyasheint_t last_word = x->dp[x->used-1];
+	while(last_word > 0){
+		check++;
+		last_word = (last_word>>1);
+	}
+
+	assert(check < 2*q_bits);
+
+	///////////////
+	// a%q //
+	///////////////
+	check = bn_cmp_abs(x, q);
+	if(check == CMP_LT)
+		return;
+	else if(check == CMP_EQ){
+		x->used = 0;
+		return;
+	}
+
+	// x = x>>s
+	bn_rshd_low(  x->dp,
+				              x->dp,
+				              x->used,
+				              q_bits/WORD ); 
+	x->used -= (q_bits/WORD>0)?q_bits/WORD:0;
+	bn_rshb_low(  x->dp,
+				              x->dp,
+				              x->used,
+				              q_bits%WORD );
+	bn_adjust_used(x);
+	bn_zero_non_used(x);
+}
+
+/**
  * Computes g/q and g%q and set "output" according the result   
  * This function works inplace.
  * 
@@ -208,16 +257,29 @@ __global__ void cuCiphertextMulAux(
 	const int tid = threadIdx.x + blockIdx.x*blockDim.x;
 
 	if(tid < N){
-		// Divides g by q
 		bn_t *coef = &g[tid];
-		mersenneDiv(coef,&q,q_bits);
+
+		bn_t coef_copy;
+		cuyasheint_t dp[STD_BNT_WORDS_ALLOC];
+		coef_copy.alloc = coef->alloc;
+		coef_copy.used = coef->used;
+		coef_copy.sign = coef->sign;
+		coef_copy.dp = dp;
+		bn_copy(&coef_copy, coef);
+
+		// Div g by q
+		mersenneDivQ(coef,&q,q_bits);
+
+		// Modular reduction g by q
+		mersenneDiv(&coef_copy,&q,q_bits);
 
 		// Checks if g%q >= q/2.
-		if(bn_cmp_abs(coef,&qDiv2) != CMP_LT){
+		if(bn_cmp_abs(&coef_copy,&qDiv2) != CMP_LT){
 			// If it is, add one.
 			bn_add1_low(coef->dp, coef->dp, 1, coef->used);
 		}
 
+		g[tid] = *coef;
 	}
 }
 

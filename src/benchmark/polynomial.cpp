@@ -55,6 +55,25 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   return compute_time_ms(start,stop)/N;
  }
 
+ double runClear(int d){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(UNIFORMLY);
+
+  // Init
+  poly_t a;
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    poly_init(&a);
+    poly_clear(&a);
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
  double runAdd(int d){
   struct timespec start, stop;
   Distribution dist;
@@ -269,7 +288,8 @@ int main(int argc, char* argv[]){
     poly_t phi;
     ZZ_pX NTL_Phi;
 
-    for(int d = 512; d < 8192; d*=2){
+    // for(int d = 512; d < 8192; d*=2){
+    for(int d = 4096; d < 8192; d*=2){
     	gen_crt_primes(q,d);
 	    CUDAFunctions::init(d);
     	poly_init(&phi);
@@ -284,6 +304,8 @@ int main(int argc, char* argv[]){
 
       diff = runInit(d);
       std::cout << d << " - Initialization) " << diff << " ms" << std::endl;
+      diff = runClear(d);
+      std::cout << d << " - Clear+Init) " << diff << " ms" << std::endl;
       diff = runAdd(d);
       std::cout << d << " - Addition) " << diff << " ms" << std::endl;
       diff = runMul(d);

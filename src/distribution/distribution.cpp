@@ -44,15 +44,14 @@ void Distribution::get_sample(poly_t *p, int degree){
   int mod;
   switch(this->kind){
     case DISCRETE_GAUSSIAN:
-      mod = 7;
       callCuGetNormalSample(p->d_bn_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
       callCRT(p->d_bn_coefs,
-        CUDAFunctions::N,
-        p->d_coefs,
-        CUDAFunctions::N,
-        CRTPrimes.size(),
-        0x0
-    );
+          CUDAFunctions::N,
+          p->d_coefs,
+          CUDAFunctions::N,
+          CRTPrimes.size(),
+          0x0
+        );
       p->status = CRTSTATE;
       return;
     break;

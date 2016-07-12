@@ -45,6 +45,7 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   // Init
   poly_t a,b;
   poly_init(&a);
+  poly_init(&b);
   dist.generate_sample(&a, 50, d);
   while(a.status != TRANSSTATE)
     poly_elevate(&a);
@@ -52,7 +53,7 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   // Exec
   clock_gettime( CLOCK_REALTIME, &start);
   for(int i = 0; i < N;i++){
-  	b = cipher.encrypt(a);
+  	cipher.encrypt(&b,a);
     cudaDeviceSynchronize();
   }
   clock_gettime( CLOCK_REALTIME, &stop);
@@ -71,12 +72,14 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   poly_init(&c);
   dist.generate_sample(&a, 50, d);
 
-  b = cipher.encrypt(a);
+  cipher.encrypt(&b,a);
+  while(b.status != TRANSSTATE)
+    poly_elevate(&b);
 
   // Exec
   clock_gettime( CLOCK_REALTIME, &start);
   for(int i = 0; i < N;i++){
-    c = cipher.decrypt(b);
+    cipher.decrypt(&c,b);
     cudaDeviceSynchronize();
   }
   clock_gettime( CLOCK_REALTIME, &stop);
@@ -121,7 +124,7 @@ int main(int argc, char* argv[]){
       Yashe::nphi = poly_get_deg(&phi);
       Yashe::nq = nq;
 
-      Yashe::t = t;
+      poly_set_coeff(&Yashe::t,0,to_ZZ(t));
       Yashe::w = w;
       Yashe::lwq = floor(NTL::log(q)/NTL::log(to_ZZ(w)))+1;
 

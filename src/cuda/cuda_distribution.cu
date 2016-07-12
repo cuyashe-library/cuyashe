@@ -129,7 +129,4 @@ __host__ void Distribution::callCuGetNormalSample(	bn_t *coefs,
 																	stddev,
 																	NPrimes );
 	assert(cudaGetLastError() == cudaSuccess);
-	
-
-
 }

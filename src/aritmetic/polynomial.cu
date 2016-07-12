@@ -19,37 +19,46 @@ std::map<ZZ, std::pair<cuyasheint_t*,int>> reciprocals;
 void poly_init(poly_t *a){
 	assert(CUDAFunctions::N);
 
-	// Host vector
-	a->coefs.resize(CUDAFunctions::N);
-	// CRT-NTT array
+	// Memory allocation on the GPU is synchronous. So, first we allocate all memory that 
+	// we need and then call asynchronous functions.
 	cudaError_t result = cudaMalloc((void**)&a->d_coefs,CUDAFunctions::N*CRTPrimes.size()*sizeof(cuyasheint_t));
 	assert( result == cudaSuccess);
-	result = cudaMemset(a->d_coefs,0,CUDAFunctions::N*CRTPrimes.size()*sizeof(cuyasheint_t));
-
+	
 	// Big-number array
-	// Init on host
 	bn_t *h_bn_coefs;
-	cuyasheint_t *d_bn_coefs_dp;
 	h_bn_coefs = (bn_t*)malloc(CUDAFunctions::N*sizeof(bn_t));
+	cuyasheint_t *d_bn_coefs_dp;
 	result = cudaMalloc((void**)&d_bn_coefs_dp,CUDAFunctions::N*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t));
 	assert( result == cudaSuccess);
+	
+
+	// CRT-NTT array
+	result = cudaMalloc((void**)&a->d_bn_coefs,CUDAFunctions::N*sizeof(bn_t));
+	assert( result == cudaSuccess);
+	
+	#ifdef CUFFTMUL_TRANSFORM
+	// If CUFFTMUL mode
+	result = cudaMalloc((void**)&a->d_coefs_transf,CUDAFunctions::N*CRTPrimes.size()*sizeof(Complex));
+	assert( result == cudaSuccess);
+	#endif
+
+	// Host vector
+	a->coefs.resize(CUDAFunctions::N);
+
+	// Init on host
 	for(int i = 0; i < CUDAFunctions::N; i++){
 		h_bn_coefs[i].alloc = STD_BNT_WORDS_ALLOC;
 		h_bn_coefs[i].used = 0;
 		h_bn_coefs[i].sign = BN_POS;
 		h_bn_coefs[i].dp = d_bn_coefs_dp + i*STD_BNT_WORDS_ALLOC;
 	}
+
 	// Copy to device	
-	result = cudaMalloc((void**)&a->d_bn_coefs,CUDAFunctions::N*sizeof(bn_t));
+	result = cudaMemsetAsync(a->d_coefs,0,CUDAFunctions::N*CRTPrimes.size()*sizeof(cuyasheint_t));
 	assert( result == cudaSuccess);
 	result = cudaMemcpyAsync(a->d_bn_coefs,h_bn_coefs,CUDAFunctions::N*sizeof(bn_t),cudaMemcpyHostToDevice);
 	assert( result == cudaSuccess);
 
-	#ifdef CUFFTMUL_TRANSFORM
-	// If CUFFTMUL mode
-	result = cudaMalloc((void**)&a->d_coefs_transf,CUDAFunctions::N*CRTPrimes.size()*sizeof(Complex));
-	assert( result == cudaSuccess);
-	#endif
 
 }
 
@@ -304,6 +313,14 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b){
   poly_biginteger_mul(c,a,B);
 }
 
+/**
+ * Reduces a polynomial a by the 2*nphi-th cyclotomic polynomial on Rq
+ * 
+ * @param a    [description]
+ * @param nphi [description]
+ * @param q    [description]
+ * @param nq   [description]
+ */
 void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
 	const unsigned int half = nphi-1;     
 	
@@ -350,8 +367,8 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
 
   	a->status = CRTSTATE;
 
-  	// cudaFree(q.dp);
 }
+
 
 /**
  * computes the polynomial inverse in R_q
@@ -372,9 +389,6 @@ void poly_invmod(poly_t *fInv, poly_t *f, int nphi, int nq){
 	ZZ_pEX ntl_phi;
 	NTL::SetCoeff(ntl_phi,0,1);
 	NTL::SetCoeff(ntl_phi,nphi,1);
-
-	std::cout << "f: "  << ntl_f << std::endl;
-	std::cout << "phi: "  << ntl_phi << std::endl;
 
 	ZZ_pEX inv_f_ntl =  NTL::InvMod(ntl_f, ntl_phi);
 

@@ -7,7 +7,7 @@
 #include "../distribution/distribution.h"
 #include "../yashe/yashe.h"
 
-#define NTESTS 10
+#define NTESTS 100
 
 struct AritmeticSuite
 {
@@ -101,7 +101,7 @@ struct YasheSuite
         Yashe::nphi = poly_get_deg(&phi);
         Yashe::nq = mersenne_n;
 
-        Yashe::t = t;
+        poly_set_coeff(&Yashe::t,0,to_ZZ(t));
         Yashe::w = w;
         Yashe::lwq = floor(NTL::log(q)/NTL::log(to_ZZ(w)))+1;
 
@@ -342,40 +342,51 @@ BOOST_FIXTURE_TEST_SUITE(YasheFixture, YasheSuite)
 BOOST_AUTO_TEST_CASE(simpleEncryptdecrypt)
 {
     
-    const int i = 2;
+    const int i = 42;
+    std::cout << "Testing " << i << std::endl;
 
     poly_t m;
     poly_init(&m);
-    std::cout << "Testing " << i << std::endl;
-    
     poly_set_coeff(&m,0,to_ZZ(i));
 
-    poly_t c = cipher->encrypt(m); //
+    poly_t c;
+    poly_init(&c);
+    cipher->encrypt(&c,m); //
 
-    poly_t d = cipher->decrypt(c); //
+    poly_t m_decrypted;
+    poly_init(&m_decrypted);
+    cipher->decrypt(&m_decrypted,c); //
 
-    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&d, 0));
+    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&m_decrypted, 0));
     
     poly_free(&m);
+    poly_free(&m_decrypted);
 }
 
 BOOST_AUTO_TEST_CASE(encryptdecrypt)
 {
  
     for(int i = 2; i < NTESTS; i++){
+        long value = NTL::RandomWord() % 1024;
+
         poly_t m;
         poly_init(&m);
-    	std::cout << "Testing " << (i) << std::endl;
+    	// std::cout << "Testing " << value << std::endl;
     	
-        poly_set_coeff(&m,0,to_ZZ(i));
+        poly_set_coeff(&m,0,to_ZZ(value));
 
-        poly_t c = cipher->encrypt(m); //
+        poly_t c;
+        poly_init(&c);
+        cipher->encrypt(&c,m); //
 
-        poly_t d = cipher->decrypt(c); //
+        poly_t m_decrypted;
+        poly_init(&m_decrypted);
+        cipher->decrypt(&m_decrypted,c); //
 
-        BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&d, 0));
+        BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&m_decrypted, 0));
         
         poly_free(&m);
+        poly_free(&m_decrypted);
     }
 }
 BOOST_AUTO_TEST_SUITE_END()

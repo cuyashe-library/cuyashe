@@ -39,8 +39,8 @@ class Yashe{
     static bn_t Q; // 
     static bn_t UQ; // 
     static bn_t qDiv2; // q/2
-    static cuyasheint_t t; //
-    static bn_t delta; // q/t
+    static poly_t t; //
+    static poly_t delta; // q/t
     static ZZ w; // 
     static std::vector<poly_t> gamma; //
     static poly_t h; // 
@@ -75,7 +75,9 @@ class Yashe{
       poly_init(&ff);
       poly_init(&tf);
       poly_init(&tff);
+      poly_init(&delta);
       poly_init(&mdelta);
+      poly_init(&t);
 
     };
     Yashe(float gaussian_std_deviation, int gaussian_bound){
@@ -83,8 +85,8 @@ class Yashe{
       xerr = Distribution(DISCRETE_GAUSSIAN,gaussian_std_deviation, gaussian_bound);
     };
     void generate_keys();
-    poly_t encrypt(poly_t m);
-    poly_t decrypt(poly_t c);
+    void encrypt(poly_t *c, poly_t m);
+    void decrypt(poly_t *m, poly_t c);
 };
 
 #endif
