@@ -24,6 +24,7 @@
 #include <iomanip>
 #include "../settings.h"
 #include "../yashe/yashe.h"
+#include "../yashe/ciphertext.h"
 #include "../aritmetic/polynomial.h"
 #include "../logging/logging.h"
 #include "../distribution/distribution.h"
@@ -43,9 +44,10 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   dist = Distribution(UNIFORMLY);
 
   // Init
-  poly_t a,b;
+  poly_t a;
+  cipher_t b;
   poly_init(&a);
-  poly_init(&b);
+  cipher_init(&b);
   dist.generate_sample(&a, 50, d);
   while(a.status != TRANSSTATE)
     poly_elevate(&a);
@@ -65,21 +67,88 @@ double compute_time_ms(struct timespec start,struct timespec stop){
   Distribution dist;
   dist = Distribution(UNIFORMLY);
 
-  // Init
-  poly_t a,b,c;
+  // Init  
+  poly_t a,c;
+  cipher_t b;
   poly_init(&a);
-  poly_init(&b);
+  cipher_init(&b);
   poly_init(&c);
   dist.generate_sample(&a, 50, d);
 
   cipher.encrypt(&b,a);
-  while(b.status != TRANSSTATE)
-    poly_elevate(&b);
+  while(b.p.status != TRANSSTATE)
+    poly_elevate(&b.p);
 
   // Exec
   clock_gettime( CLOCK_REALTIME, &start);
   for(int i = 0; i < N;i++){
     cipher.decrypt(&c,b);
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
+ double runAdd(Yashe cipher, int d){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(UNIFORMLY);
+
+  // Init 
+  poly_t a,b;
+  cipher_t c1,c2,c3;
+  poly_init(&a);
+  poly_init(&b);
+  cipher_init(&c1);
+  cipher_init(&c2);
+  cipher_init(&c3);
+  dist.generate_sample(&a, 50, d);
+  dist.generate_sample(&b, 50, d);
+
+  cipher.encrypt(&c1,a);
+  cipher.encrypt(&c2,b);
+  while(c1.p.status != TRANSSTATE)
+    poly_elevate(&c1.p);
+  while(c2.p.status != TRANSSTATE)
+    poly_elevate(&c2.p);
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    cipher_add(&c3,&c1,&c2);
+    cudaDeviceSynchronize();
+  }
+  clock_gettime( CLOCK_REALTIME, &stop);
+  return compute_time_ms(start,stop)/N;
+ }
+
+ double runMul(Yashe cipher, int d){
+  struct timespec start, stop;
+  Distribution dist;
+  dist = Distribution(UNIFORMLY);
+
+  // Init
+  poly_t a,b;
+  cipher_t c1,c2,c3;
+  poly_init(&a);
+  poly_init(&b);
+  cipher_init(&c1);
+  cipher_init(&c2);
+  cipher_init(&c3);
+  dist.generate_sample(&a, 50, d);
+  dist.generate_sample(&b, 50, d);
+
+  cipher.encrypt(&c1,a);
+  cipher.encrypt(&c2,b);
+  while(c1.p.status != TRANSSTATE)
+    poly_elevate(&c1.p);
+  while(c2.p.status != TRANSSTATE)
+    poly_elevate(&c2.p);
+
+  // Exec
+  clock_gettime( CLOCK_REALTIME, &start);
+  for(int i = 0; i < N;i++){
+    cipher_mul(&c3,&c1,&c2);
     cudaDeviceSynchronize();
   }
   clock_gettime( CLOCK_REALTIME, &stop);
@@ -134,6 +203,10 @@ int main(int argc, char* argv[]){
       std::cout << d << " - Encrypt) " << diff << " ms" << std::endl;
       diff = runDecrypt(cipher, d);
       std::cout << d << " - Decrypt) " << diff << " ms" << std::endl;
+      diff = runAdd(cipher, d);
+      std::cout << d << " - Add) " << diff << " ms" << std::endl;
+      diff = runMul(cipher, d);
+      std::cout << d << " - Mul) " << diff << " ms" << std::endl;
     }
 
 }

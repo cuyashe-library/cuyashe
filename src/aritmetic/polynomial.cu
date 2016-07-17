@@ -355,9 +355,36 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
 		poly_elevate(a);
 
 	CUDAFunctions::callPolynomialReductionCoefs(a->d_bn_coefs, half, CUDAFunctions::N, q, nq);
-	callMersenneDiv(a->d_bn_coefs , q, nq, CUDAFunctions::N, NULL);
+	// callMersenneDiv(a->d_bn_coefs , q, nq, CUDAFunctions::N, NULL);
     
-    callCRT(a->d_bn_coefs,
+ //    callCRT(a->d_bn_coefs,
+ //          CUDAFunctions::N,
+ //          a->d_coefs,
+ //          CUDAFunctions::N,
+ //          CRTPrimes.size(),
+ //          0x0
+ //    );
+
+ //  	a->status = CRTSTATE;
+
+	poly_mersenne(a,q,nq);
+}
+
+void poly_mersenne(poly_t *a, bn_t q, int nq){
+	if(a->status == TRANSSTATE){
+		poly_demote(a);
+		callICRT(a->d_bn_coefs,
+		      a->d_coefs,
+		      CUDAFunctions::N,
+		      CRTPrimes.size(),
+		      NULL
+	    );
+	}else if(a->status == HOSTSTATE)
+		poly_elevate(a);
+
+	callMersenneDiv(a->d_bn_coefs , q, nq, CUDAFunctions::N, NULL);
+
+	    callCRT(a->d_bn_coefs,
           CUDAFunctions::N,
           a->d_coefs,
           CUDAFunctions::N,
@@ -366,7 +393,6 @@ void poly_reduce(poly_t *a, int nphi, bn_t q, int nq){
     );
 
   	a->status = CRTSTATE;
-
 }
 
 

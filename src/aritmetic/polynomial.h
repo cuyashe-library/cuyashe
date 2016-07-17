@@ -157,6 +157,14 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b);
 void poly_reduce(poly_t *f, int nphi, bn_t Q, int nq);
 
 /**
+ * [poly_mersenne description]
+ * @param a  [description]
+ * @param q  [description]
+ * @param nq [description]
+ */
+void poly_mersenne(poly_t *a, bn_t q, int nq);
+
+/**
  * computes the polynomial inverse in R_q
  * @param fInv [description]
  * @param f    [description]

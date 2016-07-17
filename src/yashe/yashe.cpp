@@ -135,7 +135,7 @@ void Yashe::generate_keys(){
       std::cout << "f has no modular inverse: " << e.what()<< std::endl;
     }
   }
-  log_debug("f: " + poly_print(&f));
+  // log_debug("f: " + poly_print(&f));
 
   // ff = f*f
   poly_mul(&ff,&f,&f);
@@ -147,17 +147,17 @@ void Yashe::generate_keys(){
 
   // Sample
   xkey.get_sample(&g, nphi-1);
-  log_debug("g: " + poly_print(&g));
+  // log_debug("g: " + poly_print(&g));
   // h = fInv*g*t
   poly_mul(&h, &fInv,&g);
-  log_debug("fInv*g: " + poly_print(&h));
+  // log_debug("fInv*g: " + poly_print(&h));
   poly_mul(&h, &h, &t);
-  log_debug("fInv*gt*t: " + poly_print(&h));
+  // log_debug("fInv*gt*t: " + poly_print(&h));
   poly_reduce(&h, nphi, Yashe::Q,nq);
   while(h.status != TRANSSTATE)
     poly_elevate(&h);
 
-  log_debug("h: " + poly_print(&h));
+  // log_debug("h: " + poly_print(&h));
 
 
   ///////////////////
@@ -169,7 +169,7 @@ void Yashe::generate_keys(){
   // TO-DO //
   ///////////
 }
-void Yashe::encrypt(poly_t *c, poly_t m){
+void Yashe::encrypt(cipher_t *c, poly_t m){
   log_notice("Encrypt");
 
   // uint64_t start,end,total_start,total_end;
@@ -209,7 +209,7 @@ void Yashe::encrypt(poly_t *c, poly_t m){
 
 	//
   // start = get_cycles();
-  poly_add(c,&e,&ps);
+  poly_add(&c->p,&e,&ps);
   // log_debug("c: " + poly_print(c));
 
   // end = get_cycles();
@@ -217,7 +217,7 @@ void Yashe::encrypt(poly_t *c, poly_t m){
 
   //
   // start = get_cycles();
-  poly_reduce(c, nphi, Yashe::Q,nq);
+  poly_reduce(&c->p, nphi, Yashe::Q,nq);
 
   // end = get_cycles();
   // std::cout << "poly_reduce in " + std::to_string(end-start) + " cycles" << std::endl;
@@ -232,12 +232,12 @@ void Yashe::encrypt(poly_t *c, poly_t m){
   return;
 }
 
-void Yashe::decrypt(poly_t *m, poly_t c){
+void Yashe::decrypt(poly_t *m, cipher_t c){
   log_notice("Decrypt");
   // uint64_t start,end,total_start,total_end;
   // total_start = get_cycles();
 
-  poly_mul(m, &f, &c);
+  poly_mul(m, &f, &c.p);
   // log_debug("[c*f]: " + poly_print(m));
   poly_reduce(m, nphi, Yashe::Q,nq);
   // log_debug("[c*f]_q \\in R: " + poly_print(m));

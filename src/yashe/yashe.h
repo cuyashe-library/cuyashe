@@ -19,9 +19,17 @@
 #define YASHE_H
 
 #include <NTL/ZZ.h>
+#include "../settings.h"
 #include "../aritmetic/polynomial.h"
 #include "../distribution/distribution.h"
 #include "../cuda/cuda_ciphertext.h"
+
+struct ciphertext {
+  poly_t p;
+  int level = 0;
+} typedef cipher_t;
+
+#include "ciphertext.h"
 
 class Yashe{
   private:
@@ -85,8 +93,8 @@ class Yashe{
       xerr = Distribution(DISCRETE_GAUSSIAN,gaussian_std_deviation, gaussian_bound);
     };
     void generate_keys();
-    void encrypt(poly_t *c, poly_t m);
-    void decrypt(poly_t *m, poly_t c);
+    void encrypt(cipher_t *c, poly_t m);
+    void decrypt(poly_t *m, cipher_t c);
 };
 
 #endif

@@ -126,7 +126,7 @@ __device__ void mersenneDiv(	bn_t *x,
 		last_word = (last_word>>1);
 	}
 
-	assert(check < 2*q_bits);
+	// if(check < 2*q_bits){printf("Check failed!\n");}
 
 	///////////////
 	// a%q //
@@ -183,8 +183,12 @@ __device__ void mersenneDiv(	bn_t *x,
 		return;
 	else{
 		bn_subn_low(x->dp,x->dp, q->dp, x->used);
+		if(bn_cmp_abs(x, q) != CMP_LT)
+			mersenneDiv(x,q,q_bits);
 		return;
 	}
+	
+	return;
 }
 
 /**

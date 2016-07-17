@@ -1,4 +1,4 @@
-OPT = -O3
+OPT = -O0
 
 CUDA_CC = nvcc $(OPT) -G -g -std=c++11
 CC = g++ -std=c++11 -g -Wall -Wfatal-errors -m64 $(OPT)
@@ -19,12 +19,12 @@ OBJ = $(PWD)/obj
 
 all: tests benchmarks
 
-tests: test.o operators.o polynomial.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o yashe.o cuda_ciphertext.o coprimes.o
-	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/test $(OBJ)/test.o $(OBJ)/polynomial.o $(OBJ)/operators.o $(OBJ)/cuda_distribution.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/logging.o $(OBJ)/log.o $(OBJ)/coprimes.o $(OBJ)/yashe.o $(OBJ)/cuda_ciphertext.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+tests: test.o operators.o polynomial.o ciphertext.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o yashe.o cuda_ciphertext.o coprimes.o
+	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/test $(OBJ)/test.o $(OBJ)/polynomial.o $(OBJ)/ciphertext.o $(OBJ)/operators.o $(OBJ)/cuda_distribution.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/logging.o $(OBJ)/log.o $(OBJ)/coprimes.o $(OBJ)/yashe.o $(OBJ)/cuda_ciphertext.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
 
 benchmarks: benchmark_poly.o operators.o benchmark_yashe.o cuda_bn.o polynomial.o logging.o distribution.o cuda_distribution.o yashe.o cuda_ciphertext.o coprimes.o
-	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_poly $(OBJ)/benchmark_poly.o $(OBJ)/polynomial.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/coprimes.o $(OBJ)/logging.o $(OBJ)/cuda_ciphertext.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
-	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_yashe $(OBJ)/benchmark_yashe.o $(OBJ)/polynomial.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/coprimes.o $(OBJ)/cuda_ciphertext.o $(OBJ)/logging.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_poly $(OBJ)/benchmark_poly.o $(OBJ)/polynomial.o $(OBJ)/ciphertext.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/coprimes.o $(OBJ)/logging.o $(OBJ)/cuda_ciphertext.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_yashe $(OBJ)/benchmark_yashe.o $(OBJ)/polynomial.o $(OBJ)/ciphertext.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/coprimes.o $(OBJ)/cuda_ciphertext.o $(OBJ)/logging.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
 
 test.o: $(SRC)/test/test.cpp
 	$(CC) -c $(SRC)/test/test.cpp -o $(OBJ)/test.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)
@@ -40,6 +40,9 @@ operators.o:$(SRC)/cuda/operators.cu
 
 polynomial.o:$(SRC)/aritmetic/polynomial.cu
 	$(CUDA_CC) $(CUDA_ARCH) -c $(SRC)/aritmetic/polynomial.cu -o $(OBJ)/polynomial.o $(LCUDA) $(ICUDA) -lcufft --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) 
+
+ciphertext.o:$(SRC)/yashe/ciphertext.cpp
+	$(CC) -c $(SRC)/yashe/ciphertext.cpp -o $(OBJ)/ciphertext.o $(NTL) $(OPENMP)  $(LCUDA) $(ICUDA)
 
 coprimes.o:$(SRC)/aritmetic/coprimes.cpp
 	$(CC) -c $(SRC)/aritmetic/coprimes.cpp -o $(OBJ)/coprimes.o $(LCUDA) $(ICUDA) 
