@@ -26,7 +26,7 @@ bn_t Yashe::qDiv2;
 ZZ Yashe::q = ZZ(0);
 poly_t Yashe::t;
 poly_t Yashe::delta;
-ZZ Yashe::w = ZZ(0);
+int Yashe::w = 32;
 int Yashe::lwq = 0;
 std::vector<poly_t> Yashe::gamma;
 poly_t Yashe::h;
@@ -81,25 +81,27 @@ void Yashe::generate_keys(){
     xkey.get_sample(&fl, nphi-1);
     log_debug("fl: " + poly_print(&fl));
 
-    // f = fl*t + 1
-    // poly_mul(&f,&fl,&t);
-    
-    // poly_t one;
-    // poly_init(&one);
-    // poly_set_coeff(&one,0,to_ZZ(1));
-    
-    // poly_add(&f,&f,&one);
-    
-    // poly_reduce(&f, nphi, Yashe::Q, nq); 
-    
-    //////////////////////////////////////////////////////////////////////////
-    // NTL is not being capable of computing InvMod for several high-degree /
-    // polynomials. For now we will force f to have a format that can be ///
-    // computed much faster by the NTL. ///////////////////////////////////
-    //////////////////////////////////////////////////////////////////////
-    poly_set_coeff(&f,0,poly_get_coeff(&t,0)+to_ZZ(1));
-    poly_set_coeff(&f,nphi-1,poly_get_coeff(&t,0));
-
+    // if(nphi <= 128){
+    //   // f = fl*t + 1
+    //   poly_mul(&f,&fl,&t);
+      
+    //   poly_t one;
+    //   poly_init(&one);
+    //   poly_set_coeff(&one,0,to_ZZ(1));
+      
+    //   poly_add(&f,&f,&one);
+      
+    //   poly_reduce(&f, nphi, Yashe::Q, nq); 
+    //   std::cout << poly_print(&f) << std::endl;
+    // }else{
+      //////////////////////////////////////////////////////////////////////////
+      // NTL is not being capable of computing InvMod for several high-degree /
+      // polynomials. For now we will force f to have a format that can be ///
+      // computed much faster by the NTL. ///////////////////////////////////
+      //////////////////////////////////////////////////////////////////////
+      poly_set_coeff(&f,0,poly_get_coeff(&t,0)+to_ZZ(1));
+      // poly_set_coeff(&f,1,poly_get_coeff(&t,0));
+    // }
   try{
       //////////////////
       // Compute fInv //
@@ -119,10 +121,14 @@ void Yashe::generate_keys(){
       poly_mul(&test,&f,&fInv);
       poly_reduce(&test,nphi,Yashe::Q,nq);
 
-      if(poly_get_deg(&test) != 0)
+      if(poly_get_deg(&test) != 0){
+        std::cout << poly_print(&test) << std::endl;
         throw std::runtime_error("wrong degree");
-      if(poly_get_coeff(&test,0) != to_ZZ(1))
+      }
+      if(poly_get_coeff(&test,0) != to_ZZ(1)){
+        std::cout << poly_print(&test) << std::endl;
         throw std::runtime_error("0-coefficient different than 1");
+      }
       ////////////////////////
       ////////////////////////
 
@@ -165,9 +171,35 @@ void Yashe::generate_keys(){
   ///////////////////
   gamma.resize(lwq);
 
-  ///////////
-  // TO-DO //
-  ///////////
+  poly_t W;
+  poly_init(&W);
+  poly_set_coeff(&W,0,NTL::power2_ZZ(32));
+
+  for(int i = 0 ; i < lwq; i ++){
+    poly_init(&gamma[i]);
+
+    // W-shifts
+    for(int j = 0; j < i;j ++)
+      poly_mul(&gamma[i],&gamma[i],&W);
+      
+    // samples
+    poly_t e,s;
+    poly_init(&e);
+    poly_init(&s);
+    xerr.get_sample(&e,nphi-1);
+    xerr.get_sample(&s,nphi-1);
+
+    // h*s
+    poly_t hs;
+    poly_init(&hs);
+    poly_mul(&hs,&h,&s);
+
+    // gamma = h*s + e
+    poly_add(&gamma.at(i), &gamma.at(i),&e);
+    poly_add(&gamma.at(i), &gamma.at(i),&hs);
+    poly_reduce(&gamma.at(i), nphi, Yashe::Q,nq);
+
+  }
 }
 void Yashe::encrypt(cipher_t *c, poly_t m){
   log_notice("Encrypt");

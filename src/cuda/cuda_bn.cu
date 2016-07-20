@@ -1356,12 +1356,14 @@ __global__ void cuCRT(	cuyasheint_t *d_polyCRT,
 
 	// x can be copied to shared memory!
 	// 
-	if(tid < N*NPolis)
+	if(tid < N*NPolis){
+		// assert ( x[cid].sign == BN_POS );
 		// Computes x mod pi
 		d_polyCRT[cid + rid*N] = bn_mod1_low(	x[cid].dp,
 												x[cid].used,
 												CRTPrimesConstant[rid]
 												);
+	}
 
 }	
 

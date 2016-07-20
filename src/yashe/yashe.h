@@ -25,8 +25,10 @@
 #include "../cuda/cuda_ciphertext.h"
 
 struct ciphertext {
-  poly_t p;
-  int level = 0;
+  poly_t p; // Polynomial content
+  int level = 0; // depth
+  std::vector<poly_t> P; // auxiliar array used on keyswitch/worddecomp
+  bn_t *d_bn_coefs; // auxiliar array used on keyswitch/worddecomp
 } typedef cipher_t;
 
 #include "ciphertext.h"
@@ -49,7 +51,7 @@ class Yashe{
     static bn_t qDiv2; // q/2
     static poly_t t; //
     static poly_t delta; // q/t
-    static ZZ w; // 
+    static int w; // 
     static std::vector<poly_t> gamma; //
     static poly_t h; // 
     static poly_t f; // 

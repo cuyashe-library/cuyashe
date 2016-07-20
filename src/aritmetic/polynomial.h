@@ -157,12 +157,19 @@ void poly_biginteger_mul(poly_t *c, poly_t *a, ZZ b);
 void poly_reduce(poly_t *f, int nphi, bn_t Q, int nq);
 
 /**
- * [poly_mersenne description]
+ * [poly_cyclotomic_reduction description]
+ * @param f    [description]
+ * @param nphi [description]
+ */
+void poly_cyclotomic_reduction(poly_t *f, int nphi);
+
+/**
+ * [poly_mersenne_reduction description]
  * @param a  [description]
  * @param q  [description]
  * @param nq [description]
  */
-void poly_mersenne(poly_t *a, bn_t q, int nq);
+void poly_mersenne_reduction(poly_t *a, bn_t q, int nq);
 
 /**
  * computes the polynomial inverse in R_q

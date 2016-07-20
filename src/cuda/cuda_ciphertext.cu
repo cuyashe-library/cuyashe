@@ -17,6 +17,7 @@
  */
 #include "cuda_ciphertext.h"
 
+
 template <int WORDLENGTH>
 /**
  * cuWordecomp computes de word decomposition of every coefficient in 32 bit words.
@@ -27,10 +28,15 @@ template <int WORDLENGTH>
  * @param N   [description]
  */
 __global__ void cuWordecomp(bn_t *P,bn_t *a,int lwq, int N){
-  printf("Nothing to do");
+  printf("cuWordecomp: Nothing to do");
 }
 /**
  * Computes WordDecomp for W = 2^32
+ *
+ * This method receives lwq arrays of coefficients concatenated and decomposes
+ * each coefficient of a. Each coefficient of arrays in P stores a fraction of
+ * the related coefficient in a.
+ * 
  * @param P   A vector with N*(log_wq) elements
  * @param a   [description]
  * @param lwq [description]
@@ -38,16 +44,26 @@ __global__ void cuWordecomp(bn_t *P,bn_t *a,int lwq, int N){
 template<>
 __global__ void cuWordecomp<32>(bn_t *P,bn_t *a,int lwq, int N){
 	/**
-	 * This kernel should be executed by lwq thread
+	 * This kernel should be executed by N*lwq threads
 	 */
 	const int tid = threadIdx.x + blockIdx.x*blockDim.x;
-	const int did = tid % N;// Decomposition id
-	const int cid = tid / N;// Coefficient id
 
-	if(tid < N){
-		bn_zero(&P[tid]);
-		P[tid].dp[cid] = (a[cid].dp[did/2] >> ((did%2)*32))&(4294967296-1); 
-		P[tid].used = 1;
+	// Coefficient
+	const int cid = tid % N;
+	// Decomposition to compute
+	const int did = tid / N;
+
+	if( tid < N*lwq ){
+		bn_zero(&P[cid + did*N]);
+		
+		// Selects the first or second half of a 64 bits word 
+		uint64_t half_word =  a [ cid ].dp [ did / 2 ];
+		int i = ( did % 2 ) * 32;
+		half_word >>= i;
+
+		// Shift 
+		P[cid + did*N].dp[0] = (uint32_t)( half_word );
+		P[cid + did*N].used = 1;
 	}
 }
 
@@ -71,14 +87,17 @@ __global__ void cuWordecomp<32>(bn_t *P,bn_t *a,int lwq, int N){
 // }
 
 
-void callCuWordecomp(	dim3 gridDim, 
-						dim3 blockDim, 
-						cudaStream_t stream, 
+void callCuWordecomp(	cudaStream_t stream, 
 						int WORDLENGTH, 
 						bn_t *d_P, 
 						bn_t *a, 
 						int lwq, 
-						int N){
+						int N ){
+	const int size = N*lwq;
+	const int ADDGRIDXDIM = (size%128 == 0? size/128 : size/128 + 1);
+	const dim3 gridDim(ADDGRIDXDIM);
+	const dim3 blockDim(128);
+
 	if(WORDLENGTH == 32)
 		cuWordecomp<32><<<gridDim,blockDim,0,stream>>>(d_P,a,lwq, N);
 	// else if(WORDLENGTH == 64)
@@ -89,106 +108,102 @@ void callCuWordecomp(	dim3 gridDim,
 	assert(result == cudaSuccess);
 }
 
-
-__host__ __device__ int bn_count_bits( bn_t *a){
-	if(a->used == 0)
-		return 0;
-
-	int count = 0;
-	cuyasheint_t last_word = a->dp[a->used-1];
-	while(last_word > 0){
-		count++;
-		last_word = (last_word>>1);
-	}
-
-	return count;		
-}
-
 /**
  * Computes x%q, where x is a bit integer and q is a mersenne prime
  * @param  x      [description]
  * @param  q_bits [description]
  * @return        [description]
  */
-__device__ void mersenneDiv(	bn_t *x,
+__device__ void mersenneMod(	bn_t *x,
 								bn_t *q,
 								int q_bits){
-	if(x->used == 0)
-	return;
-
-
 	bn_adjust_used(x);
+	if(x->used == 0)
+		return;
 	
-	int check = (x->used-1)*WORD;
-	cuyasheint_t last_word = x->dp[x->used-1];
-	while(last_word > 0){
-		check++;
-		last_word = (last_word>>1);
+    if(x->sign == BN_NEG){
+      // two's complement of a's words
+      // two's complement of x is equal to the complement of x plus 1
+      x->dp[0] = (~x->dp[0]) + 1;
+      for(int i = 1; i < x->used; i++)
+        x->dp[i] = (~x->dp[i]);
+
+      // (a-b) % q
 	}
-
-	// if(check < 2*q_bits){printf("Check failed!\n");}
-
+	
 	///////////////
 	// a%q //
 	///////////////
-	check = bn_cmp_abs(x, q);
-	if(check == CMP_LT)
-		return;
-	else if(check == CMP_EQ){
-		x->used = 0;
-		return;
-	}
-
-	int carry;
-	// > q
+	int check;
+	int carry;	
 	bn_t x_copy;
 	cuyasheint_t dp[STD_BNT_WORDS_ALLOC];
 	x_copy.alloc = x->alloc;
 	x_copy.used = x->used;
 	x_copy.sign = x->sign;
 	x_copy.dp = dp;
-	bn_copy(&x_copy, x);
-
-	// x = x>>s
-	bn_rshd_low(  x->dp,
-				              x->dp,
-				              x->used,
-				              q_bits/WORD ); 
-	x->used -= (q_bits/WORD>0)?q_bits/WORD:0;
-	bn_rshb_low(  x->dp,
-				              x->dp,
-				              x->used,
-				              q_bits%WORD );
-	// x->dp[0] += carry;
-	bn_adjust_used(x);
-	bn_zero_non_used(x);
-	// x_copy = x&q
-	bn_bitwise_and(&x_copy, q);
-	x_copy.used = q->used;
-	bn_adjust_used(&x_copy);
-	bn_zero_non_used(&x_copy);
-
-	// x = (x>>s) + (x&q)
-	int nwords = max_d(x->used,x_copy.used);
-    carry = bn_addn_low(x->dp, x->dp, x_copy.dp,nwords);
-    x->used = nwords;
-
-    /* Equivalent to "If has a carry, add as last word" */
-    x->dp[x->used] = carry;
-    x->used += (carry > 0);
-
-    // If x still bigger than q, x = x - q
-	check = bn_cmp_abs(x, q);
-	if(check == CMP_LT)
-		return;
-	else{
-		bn_subn_low(x->dp,x->dp, q->dp, x->used);
-		if(bn_cmp_abs(x, q) != CMP_LT)
-			mersenneDiv(x,q,q_bits);
-		return;
-	}
 	
-	return;
+	while(bn_cmp_abs(x,q) != CMP_LT){
+		bn_copy(&x_copy, x);
+
+		///////////
+		// SHIFT //
+		///////////
+		// x = x>>s
+		bn_rshd_low(  x->dp,
+					              x->dp,
+					              x->used,
+					              q_bits/WORD ); 
+		x->used -= (q_bits/WORD>0)?q_bits/WORD:0;
+		bn_rshb_low(  x->dp,
+					              x->dp,
+					              x->used,
+					              q_bits%WORD );
+		// x->dp[0] += carry;
+		bn_adjust_used(x);
+		bn_zero_non_used(x);
+
+		/////////////////
+		// BITWISE AND //
+		/////////////////
+		// x_copy = x&q
+		bn_bitwise_and(&x_copy, q);
+		x_copy.used = q->used;
+		bn_adjust_used(&x_copy);
+		bn_zero_non_used(&x_copy);
+
+		///////////////////////////
+		// REMAINDER COMPUTATION //
+		///////////////////////////
+		// x = (x>>s) + (x&q)
+		int nwords = max_d(x->used,x_copy.used);
+	    carry = bn_addn_low(x->dp, x->dp, x_copy.dp,nwords);
+	    x->used = nwords;
+
+	    /* Equivalent to "If has a carry, add as last word" */
+	    x->dp[x->used] = carry;
+	    x->used += (carry > 0);
+
+	    // If x still bigger than q, x = x - q
+		check = bn_cmp_abs(x, q);
+		if(check != CMP_LT)
+			bn_subn_low(x->dp,x->dp, q->dp, x->used);
+	}
+
+    if(x->sign == BN_NEG){
+      // q - ((a-b) % q)
+      carry = bn_subn_low(  x->dp,
+                            q->dp,
+                            x->dp,
+                            q->used );
+
+      assert(carry == BN_POS);
+      x->used = q->used;
+      bn_adjust_used(x);
+
+      x->sign = BN_POS;
+    }
+
 }
 
 /**
@@ -197,47 +212,74 @@ __device__ void mersenneDiv(	bn_t *x,
  * @param  q_bits [description]
  * @return        [description]
  */
-__device__ void mersenneDivQ(	bn_t *x,
+__device__ void mersenneDiv(	bn_t *quot,
 								bn_t *q,
 								int q_bits){
-	if(x->used == 0)
+	if(quot->used == 0)
 	return;
-
-
-	bn_adjust_used(x);
 	
-	int check = (x->used-1)*WORD;
-	cuyasheint_t last_word = x->dp[x->used-1];
-	while(last_word > 0){
-		check++;
-		last_word = (last_word>>1);
-	}
+	bn_adjust_used(quot);
 
-	assert(check < 2*q_bits);
+	bn_t aux;
+	cuyasheint_t dp_aux[STD_BNT_WORDS_ALLOC];
+	aux.alloc = STD_BNT_WORDS_ALLOC;
+	aux.used = 0;
+	aux.sign = BN_POS;
+	aux.dp = dp_aux;
+	bn_zero_non_used(&aux);
+	bn_copy(&aux,quot);
+	bn_zero(quot);
 
-	///////////////
-	// a%q //
-	///////////////
-	check = bn_cmp_abs(x, q);
-	if(check == CMP_LT)
-		return;
-	else if(check == CMP_EQ){
-		x->used = 0;
-		return;
-	}
+	// Counter
+	//  At end we add count to quot
+	int count = -1;
+	
+	/**
+	 * Iterates until aux < q
+	 */
+	int carry;
+	while(bn_cmp_abs(&aux, q) != CMP_LT){
+		count += 1;
 
-	// x = x>>s
-	bn_rshd_low(  x->dp,
-				              x->dp,
-				              x->used,
-				              q_bits/WORD ); 
-	x->used -= (q_bits/WORD>0)?q_bits/WORD:0;
-	bn_rshb_low(  x->dp,
-				              x->dp,
-				              x->used,
-				              q_bits%WORD );
-	bn_adjust_used(x);
-	bn_zero_non_used(x);
+		///////////
+		// SHIFT //
+		///////////
+		// x = x>>s
+		bn_rshd_low(  aux.dp,
+		              aux.dp,
+		              aux.used,
+		              q_bits/WORD ); 
+		aux.used -= (q_bits/WORD>0)?q_bits/WORD:0;
+		bn_rshb_low(  aux.dp,
+		              aux.dp,
+		              aux.used,
+		              q_bits%WORD );
+
+		bn_adjust_used(&aux);
+		bn_zero_non_used(&aux);
+
+	    //////////////////////////
+	    // QUOTIENT COMPUTATION //
+	    //////////////////////////
+	    /* Accumulate the quotient! */
+		int nwords = max_d(aux.used,quot->used);
+		if(quot->used >= aux.used)
+		    carry = bn_addn_low(quot->dp, quot->dp, aux.dp, nwords);
+		else
+		    carry = bn_addn_low(quot->dp, aux.dp, quot->dp, nwords);
+		    quot->used = nwords;
+
+	    /* Equivalent to "If has a carry, add as last word" */
+	    quot->dp[quot->used] = carry;
+	    quot->used += (carry > 0);
+
+	}	
+
+    /* Accumulate count! */
+	carry = bn_add1_low(quot->dp, quot->dp, count, quot->used);
+    /* Equivalent to "If has a carry, add as last word" */
+    quot->dp[quot->used] = carry;
+    quot->used += (carry > 0);
 }
 
 /**
@@ -272,10 +314,10 @@ __global__ void cuCiphertextMulAux(
 		bn_copy(&coef_copy, coef);
 
 		// Div g by q
-		mersenneDivQ(coef,&q,q_bits);
+		mersenneDiv(coef,&q,q_bits);
 
 		// Modular reduction g by q
-		mersenneDiv(&coef_copy,&q,q_bits);
+		mersenneMod(&coef_copy,&q,q_bits);
 
 		// Checks if g%q >= q/2.
 		if(bn_cmp_abs(&coef_copy,&qDiv2) != CMP_LT){
@@ -293,7 +335,7 @@ __global__ void cuCiphertextMulAux(
  * @param q_bits [description]
  * @param N      [description]
  */
-__global__ void cuMersenneDiv( bn_t *g, 
+__global__ void cuMersenneMod( bn_t *g, 
 	                           bn_t q,
 								int q_bits,
 								int N){
@@ -306,7 +348,7 @@ __global__ void cuMersenneDiv( bn_t *g,
 
 	if(tid < N){
 		bn_t *coef = &g[tid];
-		mersenneDiv(coef,&q,q_bits);
+		mersenneMod(coef,&q,q_bits);
 	}
 }
 
@@ -328,13 +370,13 @@ __host__ void callCiphertextMulAux(bn_t *g, bn_t q, int nq,int N, cudaStream_t s
 	assert(cudaGetLastError() == cudaSuccess);
 }
 
-__host__ void callMersenneDiv(bn_t *g, bn_t q,int nq, int N, cudaStream_t stream){
+__host__ void callMersenneMod(bn_t *g, bn_t q,int nq, int N, cudaStream_t stream){
 
 	const int size = N;
 	const int ADDGRIDXDIM = (size%128 == 0? size/128 : size/128 + 1);
 	const dim3 gridDim(ADDGRIDXDIM);
 	const dim3 blockDim(128);
 
-	cuMersenneDiv<<<gridDim, blockDim,0, stream>>>(g, q, nq,N);
+	cuMersenneMod<<<gridDim, blockDim,0, stream>>>(g, q, nq,N);
 	assert(cudaGetLastError() == cudaSuccess);
 }

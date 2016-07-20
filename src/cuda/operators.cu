@@ -1284,9 +1284,7 @@ __global__ void cuICRTFix(bn_t *a, const int N, bn_t q,bn_t u_q,bn_t q2){
 
 __global__ void polynomialReductionCoefs( bn_t *a,
                                           const int half,
-                                          const int N,
-                                          bn_t q,
-                                          const int q_bits){     
+                                          const int N ){     
   ////////////////////////////////////////////////////////
   // This kernel must be executed with (N-half) threads //
   ////////////////////////////////////////////////////////
@@ -1294,7 +1292,7 @@ __global__ void polynomialReductionCoefs( bn_t *a,
   const int tid = threadIdx.x + blockIdx.x*blockDim.x;
   const int cid = tid % (N-half);
 
-  if(tid < (N-half) && cid + half + 1 < N){
+  if(tid < (N-half) && cid + half + 1 < N && a[cid+half+1].used > 0){
     bn_adjust_used(&a[cid]);
     bn_adjust_used(&a[cid+half+1]);
     /////////////
@@ -1308,35 +1306,29 @@ __global__ void polynomialReductionCoefs( bn_t *a,
                             );
     a[cid].used = max_d(a[cid].used, a[cid + half + 1].used);
     bn_adjust_used(&a[cid]);
-    
-    if(carry == BN_NEG){
-      // two's complement of a's words
-      // two's complement of x is equal to the complement of x plus 1
-      a[cid].dp[0] = (~a[cid].dp[0]) + 1;
-      for(int i = 1; i < a[cid].used; i++)
-        a[cid].dp[i] = (~a[cid].dp[i]);
+    a[cid].sign = carry;
 
-      // (a-b) % q
-      int check = (a[cid].used-1)*WORD;
-      cuyasheint_t last_word = a[cid].dp[a[cid].used-1];
-      while(last_word > 0){
-        check++;
-        last_word = (last_word>>1);
-      }
-      assert(check < 2*q_bits);
-      mersenneDiv(&a[cid], &q, q_bits);           
-      bn_adjust_used(&a[cid]);
+    // if(carry == BN_NEG){
+    //   // two's complement of a's words
+    //   // two's complement of x is equal to the complement of x plus 1
+    //   a[cid].dp[0] = (~a[cid].dp[0]) + 1;
+    //   for(int i = 1; i < a[cid].used; i++)
+    //     a[cid].dp[i] = (~a[cid].dp[i]);
 
-      // q - ((a-b) % q)
-      carry = bn_subn_low(  a[cid].dp,
-                            q.dp,
-                            a[cid].dp,
-                            q.used );
+    //   // (a-b) % q
+    //   mersenneDiv(&a[cid], &q, q_bits);           
+    //   bn_adjust_used(&a[cid]);
 
-      assert(carry == BN_POS);
-      a[cid].used = q.used;
-      bn_adjust_used(&a[cid]);
-    }
+    //   // // q - ((a-b) % q)
+    //   carry = bn_subn_low(  a[cid].dp,
+    //                         q.dp,
+    //                         a[cid].dp,
+    //                         q.used );
+
+    //   assert(carry == BN_POS);
+    //   a[cid].used = q.used;
+    //   bn_adjust_used(&a[cid]);
+    // }
     bn_zero(&a[cid + half + 1]);
   }
 
@@ -1344,9 +1336,7 @@ __global__ void polynomialReductionCoefs( bn_t *a,
 
 __host__ void CUDAFunctions::callPolynomialReductionCoefs(  bn_t *a,
                                                             const int half,
-                                                            const int N,
-                                                            const bn_t q,
-                                                            const int nq ){  
+                                                            const int N ){  
     const int size = (N-half);
 
     dim3 blockDim(ADDBLOCKXDIM);
@@ -1356,9 +1346,7 @@ __host__ void CUDAFunctions::callPolynomialReductionCoefs(  bn_t *a,
      */
     polynomialReductionCoefs<<< gridDim,blockDim, 0, NULL>>>( a,
                                                               half,
-                                                              N,
-                                                              q,
-                                                              nq);
+                                                              N);
     cudaError_t result = cudaGetLastError();
     assert(result == cudaSuccess);
 

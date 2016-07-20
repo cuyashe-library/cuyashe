@@ -167,7 +167,7 @@ int main(int argc, char* argv[]){
 
     // Init
     int t = 1024;
-    ZZ w = NTL::power2_ZZ(32);
+    int w = 32;
     int nq = 127;
     ZZ q = NTL::power2_ZZ(nq) - 1;
     poly_t phi;

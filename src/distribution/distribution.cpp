@@ -18,6 +18,14 @@
 #include "distribution.h"
 #include "../yashe/yashe.h"
 
+// This class is broken
+// 
+void ntl_random(poly_t *p, int mod,int degree){
+  for(int i = 0; i < degree; i ++)
+    poly_set_coeff(p,i,NTL::RandomBnd(to_ZZ(mod)));
+  p->status = HOSTSTATE;
+}
+
 /**
  * Generates an uniforme sample on the CRT domain
  * @param p      [description]
@@ -25,18 +33,19 @@
  * @param degree [description]
  */
 void Distribution::generate_sample(poly_t *p,int mod,int degree){
-  callCuGetUniformSample(  p->d_bn_coefs, 
-                           degree,
-                           CRTPrimes.size(), 
-                           mod);
-  callCRT(p->d_bn_coefs,
-      CUDAFunctions::N,
-      p->d_coefs,
-      CUDAFunctions::N,
-      CRTPrimes.size(),
-      0x0
-  );
-  p->status = CRTSTATE;
+  // callCuGetUniformSample(  p->d_bn_coefs, 
+  //                          degree,
+  //                          CRTPrimes.size(), 
+  //                          mod);
+  // callCRT(p->d_bn_coefs,
+  //     CUDAFunctions::N,
+  //     p->d_coefs,
+  //     CUDAFunctions::N,
+  //     CRTPrimes.size(),
+  //     0x0
+  // );
+  // p->status = CRTSTATE;
+  ntl_random(p,mod,degree);
 }
 
 void Distribution::get_sample(poly_t *p, int degree){
@@ -44,15 +53,17 @@ void Distribution::get_sample(poly_t *p, int degree){
   int mod;
   switch(this->kind){
     case DISCRETE_GAUSSIAN:
-      callCuGetNormalSample(p->d_bn_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
-      callCRT(p->d_bn_coefs,
-          CUDAFunctions::N,
-          p->d_coefs,
-          CUDAFunctions::N,
-          CRTPrimes.size(),
-          0x0
-        );
-      p->status = CRTSTATE;
+      ntl_random(p,7,degree);
+
+      // callCuGetNormalSample(p->d_bn_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
+      // callCRT(p->d_bn_coefs,
+      //     CUDAFunctions::N,
+      //     p->d_coefs,
+      //     CUDAFunctions::N,
+      //     CRTPrimes.size(),
+      //     0x0
+      //   );
+      // p->status = CRTSTATE;
       return;
     break;
     case BINARY:

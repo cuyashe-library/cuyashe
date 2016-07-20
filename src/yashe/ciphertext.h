@@ -15,6 +15,12 @@
 void cipher_init(cipher_t *a);
 
 /**
+ * [cipher_init_keyswitch description]
+ * @param a [description]
+ */
+void cipher_init_keyswitch(cipher_t *a);
+
+/**
  * [cipher_free description]
  * @param a [description]
  */

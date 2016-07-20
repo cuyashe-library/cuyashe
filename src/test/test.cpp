@@ -69,14 +69,16 @@ struct YasheSuite
         log_init("yashe_test.log");
 
         // Init
-        //OP_DEGREE = 4096;
+        // OP_DEGREE = 16;
         OP_DEGREE = 32;
         // OP_DEGREE = 2048;
+        // OP_DEGREE = 4096;
         int mersenne_n = 127;
+        // int mersenne_n = 89;
         q = NTL::power2_ZZ(mersenne_n) - 1;
         // t = 17;
         t = 1024;
-        ZZ w = NTL::power2_ZZ(32);
+        // t = 35951;
 
         gen_crt_primes(q,OP_DEGREE);
         CUDAFunctions::init(OP_DEGREE);
@@ -103,8 +105,8 @@ struct YasheSuite
         Yashe::nq = mersenne_n;
 
         poly_set_coeff(&Yashe::t,0,to_ZZ(t));
-        Yashe::w = w;
-        Yashe::lwq = floor(NTL::log(q)/NTL::log(to_ZZ(w)))+1;
+        Yashe::w = 32;
+        Yashe::lwq = floor(NTL::log(q)/NTL::log(to_ZZ(NTL::power2_ZZ(Yashe::w))))+1;
 
         cipher->generate_keys();
     }
@@ -209,6 +211,7 @@ BOOST_AUTO_TEST_CASE(mul)
         NTL::SetCoeff(ntl_b,i,conv<ZZ_p>(poly_get_coeff(&b,i)));
     }
 
+    
     // Mul
     poly_t c;
     poly_init(&c);
@@ -224,7 +227,6 @@ BOOST_AUTO_TEST_CASE(mul)
           ntl_value = 0L;
         else
           ntl_value = conv<ZZ>(NTL::rep(NTL::coeff(ntl_c,i))[0]);
-
         BOOST_CHECK_EQUAL(poly_get_coeff(&c,i) , ntl_value);
     }
 
@@ -326,7 +328,7 @@ BOOST_AUTO_TEST_CASE(simpleReduce)
             ZZ expected_result[] = {to_ZZ("1"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0"), to_ZZ("0"), to_ZZ("170141183460469231731687303715884105726"), to_ZZ("0")};
             
             for(int i = 0; i < OP_DEGREE;i++)
-                BOOST_CHECK_EQUAL(poly_get_coeff(&a,i),expected_result[i]);
+                BOOST_CHECK_EQUAL(poly_get_coeff(&a,i),expected_result[i]%q);
             
         }else{
             throw "";
@@ -575,7 +577,7 @@ BOOST_AUTO_TEST_CASE(encryptdecrypt)
         poly_init(&m_decrypted);
         cipher->decrypt(&m_decrypted,c); //
 
-        BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&m_decrypted, 0));
+        BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) % t , poly_get_coeff(&m_decrypted, 0) % t);
         
         poly_free(&m);
         poly_free(&m_decrypted);
