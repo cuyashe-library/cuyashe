@@ -1,6 +1,6 @@
 # cuYASHE
 
-University of Campinas, Institute of Computing, Brazil.
+[University of Campinas](http://www.unicamp.br), [Institute of Computing](http://www.ic.unicamp.br), Brazil.
 
 Laboratory of Security and Cryptography - [LASCA](http://www.lasca.ic.unicamp.br),<br>
 Laboratório Multidisciplinar de Computação de Alto Desempenho - [LMCAD](http://www.lmcad.ic.unicamp.br). <br>
@@ -10,7 +10,7 @@ Advisor: [Diego F. Aranha](http://www.ic.unicamp.br/~dfaranha). <br/>
 
 ## About
 
-cuYASHE is a library that implements the leveled fully homomorphic scheme YASHE on GPGPUs. The implementation employs the CUDA platform and some algebric technics (like CRT, FFT and optimizations on polynomial and modular reduction)  to obtain significant performance improvements. When compared with the state-of-the-art implementation in CPU , GPU and FPGA, it shows speed-ups for all operations. In particular, there was an improvement between 6 and 35 times for polynomial multiplication.
+cuYASHE is the first implementation of the leveled fully homomorphic scheme YASHE on GPGPUs. This library employs the CUDA platform and some algebric technics (like CRT, FFT and optimizations on polynomial and modular reduction)  to obtain significant performance improvements. When compared with the state-of-the-art implementation in CPU , GPU and FPGA, it shows speed-ups for all operations. In particular, there was an improvement between 6 and 35 times for polynomial multiplication.
 
 ## Goal
 
@@ -25,7 +25,7 @@ cuYASHE is an ongoing project and we hope to increase its performance and securi
 If you use cuYASHE, please cite using the template below:
 
 	@msc dissertation{Alves2016b,
- 		author = "P. Alves and D. Aranha",
+ 		author = "Alves, Pedro and Aranha, Diego",
   		title = "Computação sobre dados cifrados em GPGPUs",
   		year = 2016,
   		publisher = "UNICAMP",
