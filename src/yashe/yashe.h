@@ -27,6 +27,7 @@
 struct ciphertext {
   poly_t p; // Polynomial content
   int level = 0; // depth
+  bool aftermul = false;
   std::vector<poly_t> P; // auxiliar array used on keyswitch/worddecomp
   bn_t *d_bn_coefs; // auxiliar array used on keyswitch/worddecomp
 } typedef cipher_t;
@@ -97,6 +98,56 @@ class Yashe{
     void generate_keys();
     void encrypt(cipher_t *c, poly_t m);
     void decrypt(poly_t *m, cipher_t c);
+    void export_keys(std::map<std::string,std::vector<ZZ>> keys){
+
+      ////////////////
+      // Public key //
+      ////////////////
+      while(h.status != HOSTSTATE)
+        poly_demote(&h);
+
+      keys["pk"] = h.coefs;
+
+      ////////////////
+      // Secret key //
+      ////////////////
+      while(f.status != HOSTSTATE)
+        poly_demote(&f);
+      keys["sk"] = f.coefs;
+
+      /////////
+      // EVK //
+      /////////
+      // keys["evk"] = std::vector<ZZ>();
+      // for(int i = 0; i < gamma.size(); i++)
+        // keys["evk"].insert( keys["evk"].end(), gamma.at(i).begin(), gamma.at(i).end() );      
+    }
+
+    void import_keys(std::map<std::string,std::vector<ZZ>> keys){
+
+      ////////////////
+      // Public key //
+      ////////////////
+      for(unsigned int i = 0; i < keys["pk"].size();i ++)
+        poly_set_coeff(&h, i, keys["pk"].at(i));
+
+      ////////////////
+      // Secret key //
+      ////////////////
+      for(unsigned int i = 0; i < keys["sk"].size();i ++)
+        poly_set_coeff(&f, i, keys["sk"].at(i));
+
+      /////////
+      // EVK //
+      /////////
+      
+
+      // TO-DO
+      // keys["evk"] = std::vector<ZZ>();
+      // for(int i = 0; i < gamma.size(); i++)
+        // keys["evk"].insert( keys["evk"].end(), gamma.at(i).begin(), gamma.at(i).end() );      
+    
+    }
 };
 
 #endif

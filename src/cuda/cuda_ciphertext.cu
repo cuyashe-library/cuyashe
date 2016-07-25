@@ -121,16 +121,6 @@ __device__ void mersenneMod(	bn_t *x,
 	if(x->used == 0)
 		return;
 	
-    if(x->sign == BN_NEG){
-      // two's complement of a's words
-      // two's complement of x is equal to the complement of x plus 1
-      x->dp[0] = (~x->dp[0]) + 1;
-      for(int i = 1; i < x->used; i++)
-        x->dp[i] = (~x->dp[i]);
-
-      // (a-b) % q
-	}
-	
 	///////////////
 	// a%q //
 	///////////////
@@ -191,6 +181,11 @@ __device__ void mersenneMod(	bn_t *x,
 	}
 
     if(x->sign == BN_NEG){
+      /* Accumulate count! */
+	  // carry = bn_add1_low(x->dp, x->dp, 1, x->used);
+      /* Equivalent to "If has a carry, add as last word" */
+      // quot->dp[quot->used] = carry;
+	  // quot->used += (carry > 0);
       // q - ((a-b) % q)
       carry = bn_subn_low(  x->dp,
                             q->dp,
@@ -216,7 +211,7 @@ __device__ void mersenneDiv(	bn_t *quot,
 								bn_t *q,
 								int q_bits){
 	if(quot->used == 0)
-	return;
+		return;
 	
 	bn_adjust_used(quot);
 
@@ -228,7 +223,8 @@ __device__ void mersenneDiv(	bn_t *quot,
 	aux.dp = dp_aux;
 	bn_zero_non_used(&aux);
 	bn_copy(&aux,quot);
-	bn_zero(quot);
+	quot->used = 0;
+	bn_zero_non_used(quot);
 
 	// Counter
 	//  At end we add count to quot
@@ -238,7 +234,7 @@ __device__ void mersenneDiv(	bn_t *quot,
 	 * Iterates until aux < q
 	 */
 	int carry;
-	while(bn_cmp_abs(&aux, q) != CMP_LT){
+	while(aux.used > 0){
 		count += 1;
 
 		///////////
@@ -275,11 +271,136 @@ __device__ void mersenneDiv(	bn_t *quot,
 
 	}	
 
-    /* Accumulate count! */
-	carry = bn_add1_low(quot->dp, quot->dp, count, quot->used);
-    /* Equivalent to "If has a carry, add as last word" */
-    quot->dp[quot->used] = carry;
-    quot->used += (carry > 0);
+	if(quot->sign == BN_NEG){
+	//     /* Accumulate count! */
+		carry = bn_add1_low(quot->dp, quot->dp, 1, quot->used);
+	//      Equivalent to "If has a carry, add as last word" 
+	    quot->dp[quot->used] = carry;
+	    quot->used += (carry > 0);
+	}
+}
+
+/**
+ * Computes x/q, where x is a bit integer and q is a mersenne prime
+ * @param  x      [description]
+ * @param  q_bits [description]
+ * @return        [description]
+ */
+__device__ void mersenneModDiv(	bn_t *quot,
+								bn_t *rem,
+								bn_t *q,
+								int q_bits){
+	if(quot->used == 0)
+		return;
+	
+	bn_adjust_used(quot);
+
+	bn_t aux;
+	cuyasheint_t dp_aux[STD_BNT_WORDS_ALLOC];
+	aux.alloc = STD_BNT_WORDS_ALLOC;
+	aux.used = 0;
+	aux.sign = BN_POS;
+	aux.dp = dp_aux;
+	bn_zero_non_used(&aux);
+
+	// quot->sign = rem->sign;
+	quot->used = 0;
+	bn_zero_non_used(quot);
+	bn_copy(&aux,rem);
+
+	/**
+	 * Iterates until aux < q
+	 */
+	int carry;
+	int check = bn_cmp_abs(rem, q);
+	while(check != CMP_LT){
+		bn_copy(&aux,rem);
+
+		///////////
+		// SHIFT //
+		///////////
+		// x = x>>s
+		bn_rshd_low(  rem->dp,
+		              rem->dp,
+		              rem->used,
+		              q_bits/WORD ); 
+		rem->used -= (q_bits/WORD>0)?q_bits/WORD:0;
+		bn_rshb_low(  rem->dp,
+		              rem->dp,
+		              rem->used,
+		              q_bits%WORD );
+
+		bn_adjust_used(rem);
+		bn_zero_non_used(rem);
+
+	    //////////////////////////
+	    // QUOTIENT COMPUTATION //
+	    //////////////////////////
+	    /* Accumulate the quotient! */
+		int nwords = max_d(rem->used,quot->used);
+		if(quot->used >= rem->used)
+		    carry = bn_addn_low(quot->dp, quot->dp, rem->dp, nwords);
+		else
+		    carry = bn_addn_low(quot->dp, rem->dp, quot->dp, nwords);
+		    quot->used = nwords;
+
+	    /* Equivalent to "If has a carry, add as last word" */
+	    quot->dp[quot->used] = carry;
+	    quot->used += (carry > 0);
+		
+		/////////////////
+		// BITWISE AND //
+		/////////////////
+		// aux = x&q
+		bn_bitwise_and(&aux, q);
+		aux.used = q->used;
+		bn_adjust_used(&aux);
+		bn_zero_non_used(&aux);
+
+		///////////////////////////
+		// REMAINDER COMPUTATION //
+		///////////////////////////
+		// x = (x>>s) + (x&q)
+		nwords = max_d(rem->used,aux.used);
+		if(rem->used >= aux.used)
+	    	carry = bn_addn_low(rem->dp, rem->dp, aux.dp,nwords);
+	    else
+	    	carry = bn_addn_low(rem->dp, aux.dp, rem->dp, nwords);
+	    rem->used = nwords;
+
+	    /* Equivalent to "If has a carry, add as last word" */
+	    rem->dp[rem->used] = carry;
+	    rem->used += (carry > 0);
+
+	    // If x still bigger than q, x = x - q
+		check = bn_cmp_abs(rem, q);
+		// if(check != CMP_LT)
+			// bn_subn_low(rem->dp,rem->dp, q->dp, rem->used);
+	}	
+
+	if(quot->sign == BN_NEG){
+		//////////////
+		// Quotient //
+		//////////////
+		carry = bn_add1_low(quot->dp, quot->dp, 1, quot->used);
+		/* Equivalent to "If has a carry, add as last word" */
+	    quot->dp[quot->used] = carry;
+	    quot->used += (carry > 0);
+
+	    ///////////////
+	    // Remainder //
+	    ///////////////
+		carry = bn_subn_low(  	rem->dp,
+			                    q->dp,
+			                    rem->dp,
+			                    q->used );
+
+		assert(carry == BN_POS);
+		rem->used = q->used;
+		bn_adjust_used(rem);
+
+		rem->sign = BN_POS;
+	}
 }
 
 /**
@@ -313,16 +434,12 @@ __global__ void cuCiphertextMulAux(
 		coef_copy.dp = dp;
 		bn_copy(&coef_copy, coef);
 
-		// Div g by q
-		mersenneDiv(coef,&q,q_bits);
-
-		// Modular reduction g by q
-		mersenneMod(&coef_copy,&q,q_bits);
+		mersenneModDiv(coef, &coef_copy, &q, q_bits);
 
 		// Checks if g%q >= q/2.
 		if(bn_cmp_abs(&coef_copy,&qDiv2) != CMP_LT){
 			// If it is, add one.
-			bn_add1_low(coef->dp, coef->dp, 1, coef->used);
+				bn_add1_low(coef->dp, coef->dp, 1, coef->used);
 		}
 
 		g[tid] = *coef;
@@ -346,10 +463,9 @@ __global__ void cuMersenneMod( bn_t *g,
 	 */
 	const int tid = threadIdx.x + blockIdx.x*blockDim.x;
 
-	if(tid < N){
-		bn_t *coef = &g[tid];
-		mersenneMod(coef,&q,q_bits);
-	}
+	if(tid < N)
+		mersenneMod(&g[tid],&q,q_bits);
+	
 }
 
 /**

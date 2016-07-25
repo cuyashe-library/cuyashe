@@ -69,10 +69,10 @@ void cipher_mul(cipher_t *c,cipher_t *a,cipher_t *b){
 	// g = c1*c2
 	poly_mul(&c->p, &a->p, &b->p);
 	// poly_mersenne(&c->p,Yashe::Q,Yashe::nq);
-	log_debug("c1*c2: " + poly_print(&c->p));
+	// log_debug("c1*c2: " + poly_print(&c->p));
 	// g = t*c1*c2
 	poly_mul(&c->p,&c->p,&Yashe::t);
-	log_debug("t*c1*c2: "+poly_print(&c->p));
+	// log_debug("t*c1*c2: "+poly_print(&c->p));
 	// log_debug("t*c1*c2 in R: "+poly_print(&c->p));
 
 	// g = approx( g/q )
@@ -83,21 +83,19 @@ void cipher_mul(cipher_t *c,cipher_t *a,cipher_t *b){
 							Yashe::nq,
 							CUDAFunctions::N,
 							NULL );
-    poly_reduce(&c->p, Yashe::nphi, Yashe::Q, Yashe::nq); 
+	callMersenneMod(c->p.d_bn_coefs, Yashe::Q, Yashe::nq, CUDAFunctions::N, NULL);
 	
-	// cipher_keyswitch(c, *c);
-
-	callCRT(c->p.d_bn_coefs,
-			CUDAFunctions::N,
-			c->p.d_coefs,
-			CUDAFunctions::N,
-			CRTPrimes.size(),
-			0x0	);
-	
+	//cipher_keyswitch(c, *c);
+		callCRT(c->p.d_bn_coefs,
+		CUDAFunctions::N,
+		c->p.d_coefs,
+		CUDAFunctions::N,
+		CRTPrimes.size(),
+		0x0	);
 	c->p.status = CRTSTATE;
 	c->level = std::max(a->level,b->level) + 1;	
-
-	log_debug("c_mul: "+poly_print(&c->p));
+	c->aftermul = true;
+	// log_debug("c_mul: "+poly_print(&c->p));
 }
 
 void cipher_keyswitch(cipher_t *cmul, cipher_t c){
@@ -113,7 +111,24 @@ void cipher_keyswitch(cipher_t *cmul, cipher_t c){
 						c.p.d_bn_coefs, // operand
 						Yashe::lwq,
 						CUDAFunctions::N);
+	for(int i = 0; i < Yashe::lwq; i++){
+		callCRT(c.P.at(i).d_bn_coefs,
+			CUDAFunctions::N,
+			c.P.at(i).d_coefs,
+			CUDAFunctions::N,
+			CRTPrimes.size(),
+			0x0	);
+		c.P.at(i).status = CRTSTATE;
+	}
 	
+	callCRT(c.p.d_bn_coefs,
+		CUDAFunctions::N,
+		c.p.d_coefs,
+		CUDAFunctions::N,
+		CRTPrimes.size(),
+		0x0	);
+	c.p.status = CRTSTATE;
+
 	// Each polynomial in c.P will be multiplied with a polynomial in evk and
 	// added to cmul
 	
@@ -121,5 +136,8 @@ void cipher_keyswitch(cipher_t *cmul, cipher_t c){
 		poly_mul(&c.P.at(i), &c.P.at(i), &Yashe::gamma.at(i));
 		poly_add(&cmul->p,&cmul->p,&c.P.at(i));
 	}
+
+	c.aftermul = false;
+
 
 }

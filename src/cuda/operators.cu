@@ -1308,13 +1308,13 @@ __global__ void polynomialReductionCoefs( bn_t *a,
     bn_adjust_used(&a[cid]);
     a[cid].sign = carry;
 
-    // if(carry == BN_NEG){
-    //   // two's complement of a's words
-    //   // two's complement of x is equal to the complement of x plus 1
-    //   a[cid].dp[0] = (~a[cid].dp[0]) + 1;
-    //   for(int i = 1; i < a[cid].used; i++)
-    //     a[cid].dp[i] = (~a[cid].dp[i]);
-
+    if(carry == BN_NEG){
+      // two's complement of a's words
+      // two's complement of x is equal to the complement of x plus 1
+      a[cid].dp[0] = (~a[cid].dp[0]) + 1;
+      for(int i = 1; i < a[cid].used; i++)
+        a[cid].dp[i] = (~a[cid].dp[i]);
+    }
     //   // (a-b) % q
     //   mersenneDiv(&a[cid], &q, q_bits);           
     //   bn_adjust_used(&a[cid]);

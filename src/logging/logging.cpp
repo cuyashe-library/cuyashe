@@ -1,5 +1,5 @@
 #include "logging.h"
-#define DEBUG
+// #define DEBUG
 
 void log_init(){
 	// log_init(LL_DEBUG);

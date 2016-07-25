@@ -65,6 +65,7 @@ void Yashe::generate_keys(){
   /////////
   q = (NTL::power2_ZZ(nq)-1);
   get_words(&Yashe::Q,q);
+  get_words(&Yashe::qDiv2,q/2);
   Yashe::UQ = get_reciprocal(q);
 
   // Using delta as a polynomial results in a much faster multiplication on encryption.
@@ -100,7 +101,7 @@ void Yashe::generate_keys(){
       // computed much faster by the NTL. ///////////////////////////////////
       //////////////////////////////////////////////////////////////////////
       poly_set_coeff(&f,0,poly_get_coeff(&t,0)+to_ZZ(1));
-      // poly_set_coeff(&f,1,poly_get_coeff(&t,0));
+      poly_set_coeff(&f,1,poly_get_coeff(&t,0));
     // }
   try{
       //////////////////
@@ -164,7 +165,6 @@ void Yashe::generate_keys(){
     poly_elevate(&h);
 
   // log_debug("h: " + poly_print(&h));
-
 
   ///////////////////
   // Compute gamma //
@@ -269,7 +269,10 @@ void Yashe::decrypt(poly_t *m, cipher_t c){
   // uint64_t start,end,total_start,total_end;
   // total_start = get_cycles();
 
-  poly_mul(m, &f, &c.p);
+  if(c.aftermul)
+    poly_mul(m, &ff, &c.p);
+  else
+    poly_mul(m, &f, &c.p);
   // log_debug("[c*f]: " + poly_print(m));
   poly_reduce(m, nphi, Yashe::Q,nq);
   // log_debug("[c*f]_q \\in R: " + poly_print(m));
