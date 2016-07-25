@@ -1,3 +1,21 @@
+/**
+ * cuYASHE
+ * Copyright (C) 2015-2016 cuYASHE Authors
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE cuYASHE
 #include <boost/test/unit_test.hpp>
@@ -660,62 +678,6 @@ BOOST_AUTO_TEST_CASE(encryptdecrypt)
         poly_free(&m_decrypted);
         cipher_free(&c);
     }
-}
-
-BOOST_AUTO_TEST_SUITE_END()
-
-BOOST_FIXTURE_TEST_SUITE(TmpYasheFixture, TmpYasheSuite)
-
-BOOST_AUTO_TEST_CASE(apagar)
-{
-    cipher_t c1,c2;
-    cipher_init(&c1);
-    cipher_init(&c2);
-
-    poly_set_coeff(&c1.p,0,to_ZZ("45979325940012673385318768709707821480"));
-    poly_set_coeff(&c1.p,1,to_ZZ("62306848568965987277123876183569595529"));
-    poly_set_coeff(&c1.p,2,to_ZZ("165514403966059230939471753651321815323"));
-    poly_set_coeff(&c1.p,3,to_ZZ("59166270835151542916571747348725229537"));
-    poly_set_coeff(&c1.p,4,to_ZZ("50469868803397725948527413243956918975"));
-    poly_set_coeff(&c1.p,5,to_ZZ("24655643206160569993123636737657789881"));
-    poly_set_coeff(&c1.p,6,to_ZZ("140773392216570647652469931947529705024"));
-    poly_set_coeff(&c1.p,7,to_ZZ("41967586184551605768759530802531864222"));
-    poly_set_coeff(&c1.p,8,to_ZZ("43929862766092314944504402161037159647"));
-    poly_set_coeff(&c1.p,9,to_ZZ("7401205020968673544758079256977985973"));
-    poly_set_coeff(&c1.p,10,to_ZZ("45799438075021942290596584745429884188"));
-    poly_set_coeff(&c1.p,11,to_ZZ("162487417153888872586647727648999865855"));
-    poly_set_coeff(&c1.p,12,to_ZZ("9391628128059872258650442612342573515"));
-    poly_set_coeff(&c1.p,13,to_ZZ("116395108529519997538079735184902785498"));
-    poly_set_coeff(&c1.p,14,to_ZZ("8966765246450868671923714296976720636"));
-    poly_set_coeff(&c1.p,15,to_ZZ("164598377605585783574001104809471466355L"));
-
-    poly_set_coeff(&c2.p,0,to_ZZ("103976323867325682496551671086326852202"));
-    poly_set_coeff(&c2.p,1,to_ZZ("164900926425504634267121128798382149446"));
-    poly_set_coeff(&c2.p,2,to_ZZ("50635985940037775070330886628543981167"));
-    poly_set_coeff(&c2.p,3,to_ZZ("75078313952009845894284675394224315089"));
-    poly_set_coeff(&c2.p,4,to_ZZ("89130489769756867569383699750757647149"));
-    poly_set_coeff(&c2.p,5,to_ZZ("146252308174536515554083234788770890903"));
-    poly_set_coeff(&c2.p,6,to_ZZ("118507674457253239173685272367892514691"));
-    poly_set_coeff(&c2.p,7,to_ZZ("2348623858713999982416689316895677379"));
-    poly_set_coeff(&c2.p,8,to_ZZ("27395691507879391312284407415202378328"));
-    poly_set_coeff(&c2.p,9,to_ZZ("140479196817714210818935101170713609703"));
-    poly_set_coeff(&c2.p,10,to_ZZ("69938957530451022725554622516689506055"));
-    poly_set_coeff(&c2.p,11,to_ZZ("68541657881146968541172218589953661872"));
-    poly_set_coeff(&c2.p,12,to_ZZ("22212191139286917945482805474034274237"));
-    poly_set_coeff(&c2.p,13,to_ZZ("72441260089291241133209167331897581599"));
-    poly_set_coeff(&c2.p,14,to_ZZ("85426601650692938726843000597558975898"));
-    poly_set_coeff(&c2.p,15,to_ZZ("145948708384520404879965509160557351359L"));
-
-    // cipher_t c3;
-    // cipher_init(&c3);
-    // cipher_mul(&c3,&c1,&c2);
-
-    poly_t m_decrypted;
-    poly_init(&m_decrypted);
-    cipher->decrypt(&m_decrypted,c2); //
-
-    std::cout << "Decrypt: " << poly_get_coeff(&m_decrypted, 0) << std::endl;
-    BOOST_CHECK_EQUAL( to_ZZ("1") , poly_get_coeff(&m_decrypted, 0));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
