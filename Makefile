@@ -19,12 +19,15 @@ OBJ = $(PWD)/obj
 
 all: tests benchmarks
 
-tests: test.o operators.o polynomial.o ciphertext.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o yashe.o cuda_ciphertext.o coprimes.o
+tests: directories test.o operators.o polynomial.o ciphertext.o cuda_bn.o cuda_distribution.o distribution.o logging.o cuda_bn.o yashe.o cuda_ciphertext.o coprimes.o
 	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/test $(OBJ)/test.o $(OBJ)/polynomial.o $(OBJ)/ciphertext.o $(OBJ)/operators.o $(OBJ)/cuda_distribution.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/logging.o $(OBJ)/log.o $(OBJ)/coprimes.o $(OBJ)/yashe.o $(OBJ)/cuda_ciphertext.o -lcufft -lcurand  --relocatable-device-code true -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
 
-benchmarks: benchmark_poly.o operators.o benchmark_yashe.o cuda_bn.o polynomial.o logging.o distribution.o cuda_distribution.o yashe.o cuda_ciphertext.o coprimes.o
+benchmarks: directories benchmark_poly.o operators.o benchmark_yashe.o cuda_bn.o polynomial.o logging.o distribution.o cuda_distribution.o yashe.o cuda_ciphertext.o coprimes.o
 	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_poly $(OBJ)/benchmark_poly.o $(OBJ)/polynomial.o $(OBJ)/ciphertext.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/coprimes.o $(OBJ)/logging.o $(OBJ)/cuda_ciphertext.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
 	$(CUDA_CC) $(CUDA_ARCH) $(LCUDA) $(ICUDA) -o $(BIN)/benchmark_yashe $(OBJ)/benchmark_yashe.o $(OBJ)/polynomial.o $(OBJ)/ciphertext.o $(OBJ)/yashe.o $(OBJ)/operators.o $(OBJ)/cuda_bn.o $(OBJ)/distribution.o $(OBJ)/cuda_distribution.o $(OBJ)/coprimes.o $(OBJ)/cuda_ciphertext.o $(OBJ)/logging.o $(OBJ)/log.o -lcufft -lcurand  --relocatable-device-code true $(NTL) -Xcompiler $(OPENMP) $(NTL) -lboost_unit_test_framework
+
+directories:
+	mkdir -p $(BIN) $(OBJ)
 
 test.o: $(SRC)/test/test.cpp
 	$(CC) -c $(SRC)/test/test.cpp -o $(OBJ)/test.o $(NTL) $(OPENMP) -lcurand  $(LCUDA) $(ICUDA)

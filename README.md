@@ -41,7 +41,7 @@ cuYASHE is released under an GPLv3 license.
 
 ## Disclaimer
 
-cuYASHE is at most alpha-quality software. Implementations may not be correct or secure. Use at your own risk.
+cuYASHE is at most alpha-quality software. Implementations may not be correct or secure. Moreover, it was not tested with YASHE parameters different from those in the test file. This version should break with parameters much bigger than those. Use at your own risk.
 
 ## References
 

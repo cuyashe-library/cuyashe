@@ -103,7 +103,7 @@ void cipher_mul(cipher_t *c,cipher_t *a,cipher_t *b){
 							NULL );
 	callMersenneMod(c->p.d_bn_coefs, Yashe::Q, Yashe::nq, CUDAFunctions::N, NULL);
 	
-	//cipher_keyswitch(c, *c);
+	cipher_keyswitch(c, *c);
 		callCRT(c->p.d_bn_coefs,
 		CUDAFunctions::N,
 		c->p.d_coefs,
@@ -118,7 +118,7 @@ void cipher_mul(cipher_t *c,cipher_t *a,cipher_t *b){
 
 void cipher_keyswitch(cipher_t *cmul, cipher_t c){
 
-	// keyswitch auxilia variable not initialized
+	// keyswitch auxiliar variable not initialized
 	if(c.P.size() == 0)
 		cipher_init_keyswitch(&c);
 
