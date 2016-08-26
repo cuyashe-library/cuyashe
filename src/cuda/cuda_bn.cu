@@ -23,10 +23,15 @@ __constant__ cuyasheint_t M[STD_BNT_WORDS_ALLOC];
 __constant__ int M_used;
 __constant__ cuyasheint_t u[STD_BNT_WORDS_ALLOC];
 __constant__ int u_used;
-__constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*COPRIMES_BUCKET_SIZE];
-__constant__ int Mpis_used[COPRIMES_BUCKET_SIZE];
 __constant__ cuyasheint_t invMpis[COPRIMES_BUCKET_SIZE];
 
+#ifdef BIGYASHE
+__device__ cuyasheint_t *Mpis;
+__device__ int *Mpis_used;
+#else
+__constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*COPRIMES_BUCKET_SIZE];
+__constant__ int Mpis_used[COPRIMES_BUCKET_SIZE];
+#endif
 ////////////////////////
 // Auxiliar functions //
 ////////////////////////
@@ -1188,7 +1193,11 @@ __device__ void bn_mod_barrt(	bn_t *C,
 		int mu;
 		cuyasheint_t q[DSTD_BNT_WORDS_ALLOC],t[DSTD_BNT_WORDS_ALLOC],carry;
 
-		#pragma unroll DSTD_BNT_WORDS_ALLOC
+		#ifdef BIGYASHE
+		// #pragma unroll 200
+		#else
+		#pragma unroll 20
+		#endif
 		for(int i = 0; i < DSTD_BNT_WORDS_ALLOC; i++){
 			q[i] = 0;
 			t[i] = 0;

@@ -26,8 +26,6 @@ std::vector<ZZ> CRTMpi;
 std::vector<cuyasheint_t> CRTInvMpi;
 extern __host__ void callMersenneMod(bn_t *g, bn_t q,int nq, int N, cudaStream_t stream);
 
-
-
 std::map<ZZ, std::pair<cuyasheint_t*,int>> reciprocals;
 
 /** 
@@ -56,6 +54,11 @@ void poly_init(poly_t *a){
 	
 	#ifdef CUFFTMUL_TRANSFORM
 	// If CUFFTMUL mode
+
+	size_t t,f;
+	cudaMemGetInfo(&f, &t);
+	cout << "\rFree memory: " << f/(1024*1024) << std::flush;
+
 	result = cudaMalloc((void**)&a->d_coefs_transf,CUDAFunctions::N*CRTPrimes.size()*sizeof(Complex));
 	assert( result == cudaSuccess);
 	#endif
@@ -74,10 +77,10 @@ void poly_init(poly_t *a){
 	// Copy to device	
 	result = cudaMemsetAsync(a->d_coefs,0,CUDAFunctions::N*CRTPrimes.size()*sizeof(cuyasheint_t));
 	assert( result == cudaSuccess);
-	result = cudaMemcpyAsync(a->d_bn_coefs,h_bn_coefs,CUDAFunctions::N*sizeof(bn_t),cudaMemcpyHostToDevice);
+	result = cudaMemcpy(a->d_bn_coefs,h_bn_coefs,CUDAFunctions::N*sizeof(bn_t),cudaMemcpyHostToDevice);
 	assert( result == cudaSuccess);
 
-
+	free(h_bn_coefs);
 }
 
 /**
@@ -629,7 +632,8 @@ void get_words(bn_t *b,ZZ a){
   cudaError_t result;
   cuyasheint_t *h_dp;
   int used = 0;
-  int alloc = STD_BNT_WORDS_ALLOC;
+  // int alloc = STD_BNT_WORDS_ALLOC;
+  int alloc = max(NTL::NumBits(a)/WORD + (NTL::NumBits(a)%WORD != 0),STD_BNT_WORDS_ALLOC);
   assert(alloc > 0);
   
   h_dp = (cuyasheint_t *) calloc (alloc,sizeof(cuyasheint_t));
@@ -638,14 +642,7 @@ void get_words(bn_t *b,ZZ a){
    * Compute the decomposition of a
    */
   for(ZZ x = NTL::abs(a); x > 0; x=(x>>WORD),used++){
-    if(used >= alloc){
-      h_dp = (cuyasheint_t*)realloc(h_dp,alloc+STD_BNT_WORDS_ALLOC);
-      alloc += STD_BNT_WORDS_ALLOC;
-      log_warn("get_words realloc! This is bad for performance.");
-    }
-
-    h_dp[used] = conv<uint64_t>(x);
-  
+    h_dp[used] = conv<uint64_t>(x);  
   }
 
   /** 
@@ -684,10 +681,11 @@ void get_words_allocatted(bn_t *b,ZZ a,cuyasheint_t *h_data, cuyasheint_t *d_dat
   cuyasheint_t *h_dp;
   int used = 0;
   int alloc = STD_BNT_WORDS_ALLOC;
+  // int alloc = max(NTL::NumBits(a)/WORD + (NTL::NumBits(a)%WORD != 0),STD_BNT_WORDS_ALLOC);
   h_dp = h_data + index*alloc;
 
   for(ZZ x = NTL::abs(a); x > 0; x=(x>>WORD),used++){
-    assert(used < alloc);
+    assert(used <= alloc);
     h_dp[used] = conv<uint64_t>(x);
   }
 
@@ -708,14 +706,13 @@ void get_words_host(bn_t *b,ZZ a){
   cuyasheint_t *h_dp;
   int used = 0;
   int alloc = STD_BNT_WORDS_ALLOC;
+  // int alloc = max(NTL::NumBits(a)/WORD + (NTL::NumBits(a)%WORD != 0),STD_BNT_WORDS_ALLOC);
   h_dp = (cuyasheint_t *) calloc (alloc,sizeof(cuyasheint_t));
 
   for(ZZ x = NTL::abs(a); x > 0; x=(x>>WORD),used++){
-    if(used >= alloc){
-      h_dp = (cuyasheint_t*)realloc(h_dp,alloc+STD_BNT_WORDS_ALLOC);
-      alloc += STD_BNT_WORDS_ALLOC;
-      std::cout << "get_words realloc!" << std::endl;
-    }
+  	if(used > alloc)
+  		printf("Achei!\n");
+  	assert(used <= alloc);
     h_dp[used] = conv<uint64_t>(x);
   }
 
@@ -908,6 +905,7 @@ void gen_crt_primes(ZZ q,cuyasheint_t degree){
 	// std::cout << "Primes: " << std::endl;
 	int count = 0;
 	while( (M < (2*degree)*q*q) ){
+		assert(count < COPRIMES_BUCKET_SIZE);
 		n = COPRIMES_BUCKET[count];
 		count++;
 		P.push_back(n);

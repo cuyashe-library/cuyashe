@@ -152,6 +152,7 @@ struct BigYasheSuite
     Distribution dist;
     ZZ q;
     cuyasheint_t t;
+    ZZ T;
     poly_t phi;
     Yashe *cipher;
 
@@ -163,13 +164,15 @@ struct BigYasheSuite
         log_init("yashe_test.log");
 
         // Init
-        OP_DEGREE = 65536;
-        int mersenne_n = 127;
-        // int mersenne_n = 89;
+        // OP_DEGREE = 32768;
+        // int mersenne_n = 1279;
+        // T = NTL::power2_ZZ(70);
+        OP_DEGREE = 16384;
+        int mersenne_n = 607;
+        T = NTL::power2_ZZ(35);
+        BOOST_TEST_MESSAGE("Mersenne size: "<<mersenne_n <<" bits");
         q = NTL::power2_ZZ(mersenne_n) - 1;
-        // t = 17;
-        t = 1024;
-        // t = 35951;
+
 
         gen_crt_primes(q,OP_DEGREE);
         CUDAFunctions::init(OP_DEGREE);
@@ -195,7 +198,7 @@ struct BigYasheSuite
         Yashe::nphi = poly_get_deg(&phi);
         Yashe::nq = mersenne_n;
 
-        poly_set_coeff(&Yashe::t,0,to_ZZ(t));
+        poly_set_coeff(&Yashe::t,0,T);
         Yashe::w = 32;
         Yashe::lwq = floor(NTL::log(q)/NTL::log(to_ZZ(NTL::power2_ZZ(Yashe::w))))+1;
 
@@ -673,6 +676,258 @@ BOOST_AUTO_TEST_CASE(encryptdecrypt)
         cipher->decrypt(&m_decrypted,c); //
 
         BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) % t , poly_get_coeff(&m_decrypted, 0) % t);
+        
+        poly_free(&m);
+        poly_free(&m_decrypted);
+        cipher_free(&c);
+    }
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+
+BOOST_FIXTURE_TEST_SUITE(BigYasheFixture, BigYasheSuite)
+
+BOOST_AUTO_TEST_CASE(simple_encryptdecrypt)
+{
+    
+    const int i = 42;
+    std::cout << "Testing " << i << std::endl;
+
+    poly_t m;
+    poly_init(&m);
+    poly_set_coeff(&m,0,to_ZZ(i));
+
+    cipher_t c;
+    cipher_init(&c);
+    cipher->encrypt(&c,m); //
+
+    poly_t m_decrypted;
+    poly_init(&m_decrypted);
+    cipher->decrypt(&m_decrypted,c); //
+
+    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&m_decrypted, 0));
+    
+    poly_free(&m);
+    poly_free(&m_decrypted);
+}
+
+
+BOOST_AUTO_TEST_CASE(simple_add)
+{
+    
+    const int i = 42;
+    const int j = 13;
+
+    // Messages
+    // 
+    poly_t mi;
+    poly_init(&mi);
+    poly_set_coeff(&mi,0,to_ZZ(i));
+
+    poly_t mj;
+    poly_init(&mj);
+    poly_set_coeff(&mj,0,to_ZZ(j));
+
+    // Encrypt
+    // 
+    cipher_t ci;
+    cipher_init(&ci);
+    cipher->encrypt(&ci,mi); //
+
+    cipher_t cj;
+    cipher_init(&cj);
+    cipher->encrypt(&cj,mj); //
+
+    // Addition
+    // 
+    cipher_t cz;
+    cipher_init(&cz);
+    cipher_add(&cz,&ci,&cj);
+
+    poly_t m_decrypted;
+    poly_init(&m_decrypted);
+    cipher->decrypt(&m_decrypted,cz); //
+
+    BOOST_CHECK_EQUAL( i+j , poly_get_coeff(&m_decrypted, 0));
+    
+    poly_free(&mi);
+    poly_free(&mj);
+    poly_free(&m_decrypted);
+    cipher_free(&ci);
+    cipher_free(&cj);
+    cipher_free(&cz);
+}
+
+BOOST_AUTO_TEST_CASE(add)
+{
+    for(int n = 0; n < NTESTS; n++ ){
+
+        const ZZ i = NTL::RandomBnd(to_ZZ(t));
+        const ZZ j = NTL::RandomBnd(to_ZZ(t));
+
+        // Messages
+        // 
+        poly_t mi;
+        poly_init(&mi);
+        poly_set_coeff(&mi,0,i);
+
+        poly_t mj;
+        poly_init(&mj);
+        poly_set_coeff(&mj,0,j);
+
+        // Encrypt
+        // 
+        cipher_t ci;
+        cipher_init(&ci);
+        cipher->encrypt(&ci,mi); //
+
+        cipher_t cj;
+        cipher_init(&cj);
+        cipher->encrypt(&cj,mj); //
+
+        // Addition
+        // 
+        cipher_t cz;
+        cipher_init(&cz);
+        cipher_add(&cz,&ci,&cj);
+
+        poly_t m_decrypted;
+        poly_init(&m_decrypted);
+        cipher->decrypt(&m_decrypted,cz); //
+
+        BOOST_CHECK_EQUAL( (i+j) % T , poly_get_coeff(&m_decrypted, 0));
+        
+        poly_free(&mi);
+        poly_free(&mj);
+        poly_free(&m_decrypted);
+        cipher_free(&ci);
+        cipher_free(&cj);
+        cipher_free(&cz);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(simple_mul)
+{
+    
+    const int i = 42;
+    const int j = 13;
+
+    // Messages
+    // 
+    poly_t mi;
+    poly_init(&mi);
+    poly_set_coeff(&mi,0,to_ZZ(i));
+
+    poly_t mj;
+    poly_init(&mj);
+    poly_set_coeff(&mj,0,to_ZZ(j));
+
+    log_debug("f: " + poly_print(&cipher->f));
+    log_debug("h: " + poly_print(&cipher->h));
+
+    // Encrypt
+    // 
+    cipher_t ci;
+    cipher_init(&ci);
+    cipher->encrypt(&ci,mi); //
+    log_debug("c1: " + poly_print(&ci.p));
+
+
+    cipher_t cj;
+    cipher_init(&cj);
+    cipher->encrypt(&cj,mj); //
+    log_debug("c2: " + poly_print(&cj.p));
+
+    // Multiplication
+    // 
+    cipher_t cz;
+    cipher_init(&cz);
+    cipher_mul(&cz,&ci,&cj);
+
+    poly_t m_decrypted;
+    poly_init(&m_decrypted);
+    cipher->decrypt(&m_decrypted,cz); //
+
+    std::cout << ( i*j == poly_get_coeff(&m_decrypted, 0)) << std::endl;
+    BOOST_CHECK_EQUAL( i*j , poly_get_coeff(&m_decrypted, 0));
+    
+    poly_free(&mi);
+    poly_free(&mj);
+    poly_free(&m_decrypted);
+    cipher_free(&ci);
+    cipher_free(&cj);
+    cipher_free(&cz);
+}
+BOOST_AUTO_TEST_CASE(mul)
+{
+    for(int n = 0; n < NTESTS; n++){
+
+        const ZZ i = NTL::RandomBnd(to_ZZ(t));
+        const ZZ j = NTL::RandomBnd(to_ZZ(t));
+
+        // Messages
+        // 
+        poly_t mi;
+        poly_init(&mi);
+        poly_set_coeff(&mi,0,to_ZZ(i));
+
+        poly_t mj;
+        poly_init(&mj);
+        poly_set_coeff(&mj,0,to_ZZ(j));
+
+        // Encrypt
+        // 
+        cipher_t ci;
+        cipher_init(&ci);
+        cipher->encrypt(&ci,mi); //
+
+        cipher_t cj;
+        cipher_init(&cj);
+        cipher->encrypt(&cj,mj); //
+
+        // Multiplication
+        // 
+        cipher_t cz;
+        cipher_init(&cz);
+        cipher_mul(&cz,&ci,&cj);
+
+        poly_t m_decrypted;
+        poly_init(&m_decrypted);
+        cipher->decrypt(&m_decrypted,cz); //
+
+        BOOST_CHECK_EQUAL( i*j % T , poly_get_coeff(&m_decrypted, 0));
+        
+        poly_free(&mi);
+        poly_free(&mj);
+        poly_free(&m_decrypted);
+        cipher_free(&ci);
+        cipher_free(&cj);
+        cipher_free(&cz);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(encryptdecrypt)
+{
+ 
+    for(int i = 2; i < NTESTS; i++){
+        long value = NTL::RandomWord() % 1024;
+
+        poly_t m;
+        poly_init(&m);
+        // std::cout << "Testing " << value << std::endl;
+        
+        poly_set_coeff(&m,0,to_ZZ(value));
+
+        cipher_t c;
+        cipher_init(&c);
+        cipher->encrypt(&c,m); //
+
+        poly_t m_decrypted;
+        poly_init(&m_decrypted);
+        cipher->decrypt(&m_decrypted,c); //
+
+        BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) % T , poly_get_coeff(&m_decrypted, 0) % T);
         
         poly_free(&m);
         poly_free(&m_decrypted);

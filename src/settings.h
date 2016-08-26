@@ -21,7 +21,6 @@
 
 #include <cstdint>
 #include <cuda_runtime.h>
-
 ///////////////////////
 // cuYASHE's integer //
 ///////////////////////
@@ -51,22 +50,28 @@ typedef struct bn_st{
 
 #ifdef CUFFTMUL_TRANSFORM
 #define CRTPRIMESIZE 13 
-#define COPRIMES_BUCKET_SIZE 200                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     //
-extern const uint32_t COPRIMES_BUCKET[];
+extern const int COPRIMES_BUCKET[];
 #else
 #define CRTPRIMESIZE 10 
-#define COPRIMES_BUCKET_SIZE 200                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           //
-extern const uint32_t COPRIMES_BUCKET[];
+extern const int COPRIMES_BUCKET[];
 #endif
 
 // CRT cannot use primes bigger than WORD/2 bits
 #define WORD 64
 #define BN_DIGIT WORD
 
+#define BIGYASHE
+
 // Standard number of words to allocate
-// #define STD_BNT_WORDS_ALLOC 32 // Up to 1024 bits big integers
+// NVCC does not accept this macro in cuda_bn.cu:1191 pragma unroll. 
+// Remember this if change this macro
+#ifdef BIGYASHE
+#define STD_BNT_WORDS_ALLOC 40 // Up to  bits big integers
+#define DSTD_BNT_WORDS_ALLOC 80 // Up to  bits big integers
+#else
 #define STD_BNT_WORDS_ALLOC 10 // Up to  bits big integers
 #define DSTD_BNT_WORDS_ALLOC 20 // Up to  bits big integers
+#endif
 
 enum add_mode_t {ADD,SUB,MUL,DIV,MOD};
 enum transforms {NTTMUL, CUFFTMUL};

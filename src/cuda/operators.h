@@ -29,8 +29,9 @@
 #include <NTL/ZZ.h>
 #include "../settings.h"
 #include "../cuda/cuda_bn.h"
+#include "../aritmetic/coprimes.h"
 #include "../aritmetic/polynomial.h"
-
+ 
 NTL_CLIENT
 
 #define MAX_PRIMES_ON_C_MEMORY 4096

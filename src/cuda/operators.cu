@@ -49,14 +49,21 @@ extern __constant__ int M_used;
 extern __constant__ cuyasheint_t u[STD_BNT_WORDS_ALLOC];
 extern __constant__ int u_used;
 
+#ifdef BIGYASHE
+extern cuyasheint_t *Mpis;
+extern int *Mpis_used;
+#else
 extern __constant__ cuyasheint_t Mpis[STD_BNT_WORDS_ALLOC*COPRIMES_BUCKET_SIZE];
 extern __constant__ int Mpis_used[COPRIMES_BUCKET_SIZE];
+#endif
+
 extern __constant__ cuyasheint_t invMpis[COPRIMES_BUCKET_SIZE];
 
 __constant__ cuyasheint_t W16[225]; 
 __constant__ cuyasheint_t WInv16[225]; 
 __constant__ cuyasheint_t W8[50]; 
 __constant__ cuyasheint_t WInv8[50]; 
+
 
 /////////////
 
@@ -1189,12 +1196,19 @@ __host__ void CUDAFunctions::init(int M){
    */
   const unsigned int size = N*CRTPrimes.size();
 
+  size_t t,f;
+  cudaMemGetInfo(&f, &t);
+  std::cout << "\rFree memory: " << f/(1024*1024) << std::flush;
+
   result = cudaMalloc((void**)&CUDAFunctions::d_inner_results, size*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t));
   assert(result == cudaSuccess);
   result = cudaMalloc((void**)&CUDAFunctions::d_inner_results_used, size*sizeof(cuyasheint_t));
   assert(result == cudaSuccess);
 
+  cudaMemGetInfo(&f, &t);
+  std::cout << "\rFree memory: " << f/(1024*1024) << std::flush;
 
+  std::cout << std::endl;
   /**
    * Pre-allocated arrays for NTT multiplication
    */
@@ -1413,13 +1427,31 @@ __host__ void  CUDAFunctions::write_crt_primes(){
     bn_t *h_Mpis;
     h_Mpis = (bn_t*) malloc( CRTPrimes.size()*sizeof(bn_t) );
     
+    #ifdef BIGYASHE
+    result = cudaMalloc((void**)&Mpis,CRTPrimes.size()*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t));
+    assert(result == cudaSuccess);
+    result = cudaMalloc((void**)&Mpis_used,CRTPrimes.size()*sizeof(int));
+    assert(result == cudaSuccess);
+    #endif
+
     for(unsigned int i = 0; i < CRTPrimes.size();i++){
       h_Mpis[i].alloc = 0;
       get_words_host(&h_Mpis[i],CRTMpi[i]);
+      #ifdef BIGYASHE
+      result = cudaMemcpy(Mpis + i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t), &h_Mpis[i].dp, STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaMemcpyHostToDevice);
+      if(result != cudaSuccess)
+        printf("%d - %s\n", i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaGetErrorString(result));
+      assert(result == cudaSuccess);
+      result = cudaMemcpy(Mpis_used + i*sizeof(int),&h_Mpis[i].used, sizeof(int),cudaMemcpyHostToDevice);
+      if(result != cudaSuccess)
+        printf("%s\n", cudaGetErrorString(result));
+      assert(result == cudaSuccess);
+      #else
       result = cudaMemcpyToSymbol(Mpis, h_Mpis[i].dp, STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),i*STD_BNT_WORDS_ALLOC*sizeof(cuyasheint_t),cudaMemcpyHostToDevice);
       assert(result == cudaSuccess);
       result = cudaMemcpyToSymbol(Mpis_used,&h_Mpis[i].used, sizeof(int),i*sizeof(int),cudaMemcpyHostToDevice);
       assert(result == cudaSuccess);
+      #endif
     }
 
     /////////////////

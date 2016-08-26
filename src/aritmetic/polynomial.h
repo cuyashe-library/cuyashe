@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <sstream>
 #include "../settings.h"
+#include "coprimes.h"
 #include "../cuda/operators.h"
 #include "../cuda/cuda_bn.h"
 #include "../logging/logging.h"
