@@ -451,7 +451,7 @@ BOOST_AUTO_TEST_CASE(simple_encryptdecrypt)
     poly_init(&m_decrypted);
     cipher->decrypt(&m_decrypted,c); //
 
-    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0) , poly_get_coeff(&m_decrypted, 0));
+    BOOST_CHECK_EQUAL(poly_get_coeff(&m,0)% to_ZZ(t) , poly_get_coeff(&m_decrypted, 0)% to_ZZ(t));
     
     poly_free(&m);
     poly_free(&m_decrypted);
@@ -541,7 +541,7 @@ BOOST_AUTO_TEST_CASE(add)
         poly_init(&m_decrypted);
         cipher->decrypt(&m_decrypted,cz); //
 
-        BOOST_CHECK_EQUAL( (i+j) % to_ZZ(t) , poly_get_coeff(&m_decrypted, 0));
+        BOOST_CHECK_EQUAL( (i+j) % to_ZZ(t) , poly_get_coeff(&m_decrypted, 0)% to_ZZ(t));
         
         poly_free(&mi);
         poly_free(&mj);
@@ -595,7 +595,7 @@ BOOST_AUTO_TEST_CASE(simple_mul)
     cipher->decrypt(&m_decrypted,cz); //
 
     std::cout << ( i*j == poly_get_coeff(&m_decrypted, 0)) << std::endl;
-    BOOST_CHECK_EQUAL( i*j , poly_get_coeff(&m_decrypted, 0));
+    BOOST_CHECK_EQUAL( i*j% (t) , poly_get_coeff(&m_decrypted, 0)% to_ZZ(t));
     
     poly_free(&mi);
     poly_free(&mj);
@@ -641,7 +641,7 @@ BOOST_AUTO_TEST_CASE(mul)
         poly_init(&m_decrypted);
         cipher->decrypt(&m_decrypted,cz); //
 
-        BOOST_CHECK_EQUAL( i*j % to_ZZ(t) , poly_get_coeff(&m_decrypted, 0));
+        BOOST_CHECK_EQUAL( i*j % (t) , poly_get_coeff(&m_decrypted, 0)% to_ZZ(t));
         
         poly_free(&mi);
         poly_free(&mj);

@@ -58,6 +58,28 @@ __global__ void generate_narrow_random_numbers(	bn_t *coefs,
         
 }
 
+
+__global__ void generate_normal_random_numbers(	bn_t *coefs,
+												curandState *states,
+												int N,
+												int spacing,
+												float mean, 
+												float stddev,
+												int NPrimes) {
+
+    const int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+    if (tid < N){	
+    	int value = llrintf(curand_normal (&states[tid])*stddev + mean); 
+		// This is our guarantee that the polynomial will assume the desired degree
+		value += (tid == N && value == 0); 
+    	coefs[tid].dp[0] = value;
+    	coefs[tid].used = 1;
+    	bn_zero_non_used(&coefs[tid]);
+    }
+        
+}
+
 __host__  void Distribution::callCuGetUniformSample(	bn_t *coefs,
 														int N,
 														int NPrimes,
@@ -83,27 +105,6 @@ __host__  void Distribution::callCuGetUniformSample(	bn_t *coefs,
 	assert(cudaGetLastError() == cudaSuccess);
 }
 
-__global__ void generate_normal_random_numbers(	bn_t *coefs,
-												curandState *states,
-												int N,
-												int spacing,
-												float mean, 
-												float stddev,
-												int NPrimes) {
-
-    const int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if (tid < N){	
-    	int value = curand_normal (&states[tid])*stddev + mean; 
-		// This is our guarantee that the polynomial will assume the desired degree
-		value += (tid == N && value == 0); 
-    	coefs[tid].dp[0] = value;
-    	coefs[tid].used = 1;
-    	bn_zero_non_used(&coefs[tid]);
-    }
-        
-}
-
 __host__ void Distribution::callCuGetNormalSample(	bn_t *coefs,
 													int N,
 													float mean,
@@ -121,7 +122,7 @@ __host__ void Distribution::callCuGetNormalSample(	bn_t *coefs,
 	 * Generate values
 	 */
 	assert(N <= MAX_DEGREE);
-	generate_normal_random_numbers<<<blockDim,gridDim,0,NULL>>>( 	coefs,
+	generate_normal_random_numbers<<<gridDim,blockDim,0,NULL>>>( 	coefs,
 																	states,
 																	N,
 																	CUDAFunctions::N,

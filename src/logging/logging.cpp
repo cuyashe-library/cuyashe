@@ -19,6 +19,8 @@
 #include "logging.h"
 // #define DEBUG
 
+
+#ifdef DEBUG
 void log_init(){
 	// log_init(LL_DEBUG);
 	log_notice("");
@@ -43,7 +45,6 @@ void log_init(std::string s){
 	log_error("...Starting...");
 }
 
-#ifdef DEBUG
 void log_notice(std::string s){
 	LOG_NOTICE("%s",s.c_str());
 }
@@ -57,6 +58,14 @@ void log_error(std::string s){
 	LOG_ERROR("%s",s.c_str());
 }
 #else
+
+void log_init(){
+
+}
+
+void log_init(std::string s){
+	
+}
 
 void log_notice(std::string s){
 }

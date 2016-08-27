@@ -33,19 +33,19 @@ void ntl_random(poly_t *p, int mod,int degree){
  * @param degree [description]
  */
 void Distribution::generate_sample(poly_t *p,int mod,int degree){
-  // callCuGetUniformSample(  p->d_bn_coefs, 
-  //                          degree,
-  //                          CRTPrimes.size(), 
-  //                          mod);
-  // callCRT(p->d_bn_coefs,
-  //     CUDAFunctions::N,
-  //     p->d_coefs,
-  //     CUDAFunctions::N,
-  //     CRTPrimes.size(),
-  //     0x0
-  // );
-  // p->status = CRTSTATE;
-  ntl_random(p,mod,degree);
+   callCuGetUniformSample(  p->d_bn_coefs, 
+                            degree,
+                            CRTPrimes.size(), 
+                            mod);
+   callCRT(p->d_bn_coefs,
+       CUDAFunctions::N,
+       p->d_coefs,
+       CUDAFunctions::N,
+       CRTPrimes.size(),
+       0x0
+   );
+   p->status = CRTSTATE;
+   //ntl_random(p,mod,degree);
 }
 
 void Distribution::get_sample(poly_t *p, int degree){
@@ -53,18 +53,23 @@ void Distribution::get_sample(poly_t *p, int degree){
   int mod;
   switch(this->kind){
     case DISCRETE_GAUSSIAN:
-      ntl_random(p,7,degree);
-
-      // callCuGetNormalSample(p->d_bn_coefs, degree, gaussian_bound, gaussian_std_deviation, CRTPrimes.size());
-      // callCRT(p->d_bn_coefs,
-      //     CUDAFunctions::N,
-      //     p->d_coefs,
-      //     CUDAFunctions::N,
-      //     CRTPrimes.size(),
-      //     0x0
-      //   );
-      // p->status = CRTSTATE;
+      // ntl_random(p,7,degree);
+	//return;
+       callCuGetNormalSample( p->d_bn_coefs,
+                              degree,
+                              gaussian_bound,
+                              gaussian_std_deviation,
+                              CRTPrimes.size());
+       callCRT(p->d_bn_coefs,
+           CUDAFunctions::N,
+           p->d_coefs,
+           CUDAFunctions::N,
+           CRTPrimes.size(),
+           0x0
+         );
+       p->status = CRTSTATE;
       return;
+      // mod = 2;
     break;
     case BINARY:
       mod = 2;
