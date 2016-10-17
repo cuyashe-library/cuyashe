@@ -35,7 +35,7 @@ If you use cuYASHE, please cite using the template below:
 	}
 
 
-# Licensing
+## Licensing
 
 cuYASHE is released under an GPLv3 license.
 
