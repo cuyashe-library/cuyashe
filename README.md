@@ -24,16 +24,14 @@ cuYASHE is an ongoing project and we hope to increase its performance and securi
 ## Citing
 If you use cuYASHE, please cite using the template below:
 
-	@msc dissertation{Alves2016b,
- 		author = "Alves, Pedro and Aranha, Diego",
-  		title = "Computação sobre dados cifrados em GPGPUs",
-  		year = 2016,
-  		publisher = "UNICAMP",
-  		institution = "Institute of Computing",
-  		month = "Jun",
-	        howpublished = {\url{https://github.com/cuyashe-library/cuyashe}}
+	@MastersThesis{Alves2016b,
+		author     =     {Alves, Pedro G. M. R. and Aranha, Diego F.},
+		title     =     {{Efficient GPGPU implementation of the Leveled Fully Homomorphic Encryption scheme YASHE}},
+		school     =     {Institute of Computing, University of Campinas},
+		address     =     {Brazil},
+		year     =     {2016},
+		note = 	{(In Portuguese)}
 	}
-
 
 ## Licensing
 
@@ -45,7 +43,7 @@ cuYASHE is at most alpha-quality software. Implementations may not be correct or
 
 ## References
 
-- Alves, P. G. M. R., & Aranha, D. F. (2016). Computação sobre dados cifrados em GPGPUs. Institute of Computing, Unicamp.
+- Alves, P. G. M. R., & Aranha, D. F. (2016). Efficient GPGPU implementation of the Leveled Fully Homomorphic Encryption scheme YASHE (In Portuguese). Institute of Computing, Unicamp.
 - Bos, J. W., Lauter, K., Loftus, J., & Naehrig, M. (n.d.). Improved Security for a Ring-Based Fully Homomorphic Encryption Scheme.
 
 
