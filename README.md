@@ -6,7 +6,7 @@ Laboratory of Security and Cryptography - [LASCA](http://www.lasca.ic.unicamp.br
 Laboratório Multidisciplinar de Computação de Alto Desempenho - [LMCAD](http://www.lmcad.ic.unicamp.br). <br>
 
 Author: [Pedro G. M. R. Alves](http://www.iampedro.com), PhD. student @ IC-UNICAMP,<br/>
-Advisor: [Diego F. Aranha](http://www.ic.unicamp.br/~dfaranha). <br/>
+Advisor: Professor [Diego F. Aranha](http://www.ic.unicamp.br/~dfaranha). <br/>
 
 ## About
 
