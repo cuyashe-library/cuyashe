@@ -220,27 +220,12 @@ __device__ bool overflow(const uint64_t a, const uint64_t b){
 
 __device__ uint64_t s_rem (uint64_t a)
 {
-  // Special reduction for prime 2^64-2^32+1
-  //
-  // x3 * 2^96 + x2 * 2^64 + x1 * 2^32 + x0 \equiv
-  // (x1+x2) * 2^32 + x0 - x3 - x2 mod p
-  //
-  // Here: x3 = 0, x2 = 0, x1 = (a >> 32), x0 = a-(x1 << 32)
-  // const uint64_t p = 0xffffffff00000001;
-  // uint64_t x3 = 0;
-  // uint64_t x2 = 0;
-
-  uint64_t x1 = (a >> 32);
-  uint64_t x0 = (a & UINT32_MAX);
-
-  // uint64_t res = ((x1+x2)<<32 + x0-x3-x2);
-  uint64_t res = ((x1<<32) + x0);
+  uint64_t res;
+	
+  res = a;
 
   if(res >= PRIMEP){
     res -= PRIMEP;
-    x1 = (res >> 32);
-    x0 = (res & UINT32_MAX);
-    res = ((x1<<32) + x0);
   }
 
   return res;
@@ -281,7 +266,7 @@ __device__  inline uint64_t s_mul(uint64_t a,uint64_t b){
 
   // This avoids conditional branchs
   // res = (PRIMEP-res)*(testA) + (res-PRIMEP)*(!testA && testB) + (PRIMEP - (UINT64_MAX-res))*(!testA && !testB && testC) + (res)*(!testA && !testB && !testC);
-  res =   (PRIMEP-res)*(testA) 
+  res =   (PRIMEP+res)*(testA) 
         + (res-PRIMEP)*(!testA && testB) 
         + (res+GAP)*(!testA && !testB && testC) 
         + (res)*(!testA && !testB && !testC);
@@ -301,19 +286,8 @@ __device__ inline  uint64_t s_add(uint64_t a,uint64_t b){
 }
 
 __device__ inline uint64_t s_sub(uint64_t a,uint64_t b){
-  // Computes a-b % P
-  // 4294967295L == UINT64_MAX - P
-
   uint64_t res;
-  // if(b > a){
-  //   res = PRIMEP;
-  //   res -= b;
-  //   res += a;
-  // }
-  // else
-  //   res = a-b;
   res = (a-b) + (b > a)*PRIMEP; 
-
   return res;
 }
 
