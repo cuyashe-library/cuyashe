@@ -1188,7 +1188,7 @@ __device__ void bn_mod_barrt(	bn_t *C,
 		int mu;
 		cuyasheint_t q[DSTD_BNT_WORDS_ALLOC],t[DSTD_BNT_WORDS_ALLOC],carry;
 
-		#pragma unroll DSTD_BNT_WORDS_ALLOC
+		#pragma unroll 20 // DSTD_BNT_WORDS_ALLOC
 		for(int i = 0; i < DSTD_BNT_WORDS_ALLOC; i++){
 			q[i] = 0;
 			t[i] = 0;
