@@ -1,6 +1,11 @@
 OPT = -O0
 
-CUDA_CC = nvcc $(OPT) -G -g -std=c++11
+# CUDA toolkit (override if nvcc is not on PATH)
+NVCC ?= /usr/local/cuda/bin/nvcc
+# GPU architecture: defaults to the current machine; override e.g. CUDA_ARCH=-arch=sm_89
+CUDA_ARCH ?= -arch=native
+
+CUDA_CC = $(NVCC) $(OPT) -G -g -std=c++11
 CC = g++ -std=c++11 -g -Wall -Wfatal-errors -m64 $(OPT)
 
 OPENMP = -fopenmp
@@ -11,7 +16,6 @@ NTL = -Intl -lntl -lgmp
 #LCUDA = -L/usr/local/cuda/lib64
 LCUDA = -lcuda -lcudart -lcudadevrt -L/usr/local/cuda/lib64 -lcurand
 ICUDA = -I/usr/local/cuda/include
-CUDA_ARCH = -arch=sm_35
 
 SRC = $(PWD)/src
 BIN = $(PWD)/bin
